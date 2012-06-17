@@ -13,22 +13,65 @@ set(DEP_LIBS_RELEASE
 	shrUtils32.lib
 	)
 
+set(CUDA_MT_FILES
+	cuda_mt/MersenneTwister_kernel.cu
+	cuda_mt/MersenneTwister.dat
+	cuda_mt/MersenneTwister.h
+	)
+
 set(CORE_FILES
+	camera.cpp
+	camera.h
+	cuda_defs.h
+	cuda_mem_pool.cpp
+	cuda_mem_pool.h
+	cuda_rng.cpp
+	cuda_rng.h
+	cuda_utils.cpp
+	cuda_utils.h
+	math_utils.cpp
+	math_utils.h
+	matrix44f.cpp
+	matrix44f.h
+	normal3f.cpp
+	normal3f.h
+	point3f.cpp
+	point3f.h
+	vector3f.cpp
+	vector3f.h
+	prerequisites.h
+	ray.cpp
+	ray.h
+	ray_gen.cpp
+	ray_gen.h
+	render_target.cpp
+	render_target.h
+	rt_core.cpp
+	rt_core.h
+	sampler.cpp
+	sampler.h
 	scene.cpp
 	scene.h
+	transform.cpp
+	transform.h
 	)
 
 set(GPU_FILES
+	ray_gen.cu
 	vec_add.cu
 	)
 
+source_group("cuda_mt" FILES ${CUDA_MT_FILES})
 source_group("core" FILES ${CORE_FILES})
 source_group("gpu" FILES ${GPU_FILES})
 
 set(SRC_FILES 
+	${CUDA_MT_FILES}
 	${CORE_FILES} 
 	${GPU_FILES}
 	)
+
+add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
 cuda_add_library(${LIB_TARGET} ${SRC_FILES} STATIC)
 set_target_properties(${LIB_TARGET} PROPERTIES DEBUG_POSTFIX "_d") 
