@@ -42,18 +42,17 @@ set(CORE_FILES
 	prerequisites.h
 	ray.cpp
 	ray.h
-	ray_gen.cpp
-	ray_gen.h
+	ray_tracer.cpp
+	ray_tracer.h
 	render_target.cpp
 	render_target.h
-	rt_core.cpp
-	rt_core.h
 	sampler.cpp
 	sampler.h
 	scene.cpp
 	scene.h
 	transform.cpp
 	transform.h
+	main.cpp
 	)
 
 set(GPU_FILES
@@ -73,8 +72,10 @@ set(SRC_FILES
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
-cuda_add_library(${LIB_TARGET} ${SRC_FILES} STATIC)
+#cuda_add_library(${LIB_TARGET} ${LIB_TYPE} ${SRC_FILES})
+cuda_add_executable(${LIB_TARGET} ${SRC_FILES})
+
 set_target_properties(${LIB_TARGET} PROPERTIES DEBUG_POSTFIX "_d") 
 target_link_libraries(${LIB_TARGET} debug "${DEP_LIBS_DEBUG}")
 target_link_libraries(${LIB_TARGET} optimized "${DEP_LIBS_RELEASE}")
-install(TARGETS ${LIB_TARGET} ARCHIVE DESTINATION lib/)
+#install(TARGETS ${LIB_TARGET} ARCHIVE DESTINATION lib/)

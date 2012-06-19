@@ -129,6 +129,48 @@ private:
 	c_mem_chunk *m_pinned_host_chunk; 
 };
 
+//////////////////////////////////////////////////////////////////////////
+
+c_mem_pool& get_mem_pool()
+{
+	static c_mem_pool pool; 
+	
+	return pool; 
+}
+
+template<typename T>
+class c_cuda_memory
+{
+public:
+	c_cuda_memory(size_t num_elems, const std::string& cat = "Temporary", size_t alignment = 64)
+		: m_num_elems(num_elems)
+	{
+		c_mem_pool& pool = get_mem_pool(); 
+		pool.request((void**)&d_buffer, num_elems*sizeof(T), cat, alignment);
+	}
+	
+	~c_cuda_memory();
+
+	T* get_buf_ptr() const { return d_buffer; }
+
+	T read(size_t idx)
+	{
+		assert(idx >= m_num_elems); 
+		T res; 
+		
+		cudaError_t err = cudaMemcpy(&res, d_buffer+idx, sizeof(T), cudaMemcpyDeviceToHost); 
+		assert(err == cudaSuccess); 
+		
+		return res;
+	}
+	
+private:
+	size_t m_num_elems; 
+	
+	// Device memory 
+	T *d_buffer; 
+};
+
 
 
 #endif // __cuda_mem_pool_h__

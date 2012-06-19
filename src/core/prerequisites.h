@@ -24,4 +24,6 @@ class c_render_target;
 #define SAFE_DELETE(p)  { if(p) delete (p); (p) = NULL; }
 #define SAFE_DELETE_ARRAY(p)  { if(p) delete [] (p); (p) = NULL; }
 
+typedef unsigned int uint32_t; 
+
 #endif

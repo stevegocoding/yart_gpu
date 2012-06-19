@@ -3,27 +3,28 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include "cuda_defs.h"
 #include "transform.h"
-
-typedef boost::shared_ptr<c_render_target> render_target_ptr; 
 
 class c_camera
 {
 public:
-	explicit c_camera(const c_transform& cam_to_world, render_target_ptr film)
-		: m_render_target(film)
-		, m_camera_to_world(cam_to_world)
+	explicit c_camera(const c_transform& cam_to_world, uint32 res_x, uint32 res_y)
+		: m_camera_to_world(cam_to_world)
+		, m_res_x(res_x)
+		, m_res_y(res_y)
 	{
 	}
 
 	virtual ~c_camera() {} 
 
-	render_target_ptr get_render_target() const { return m_render_target; }
-
+	uint32 res_x() const { return m_res_x; }
+	uint32 res_y() const { return m_res_y; }
 
 protected:
-	render_target_ptr m_render_target;
+
+	uint32 m_res_x, m_res_y; 
+
 	c_transform m_camera_to_world; 
 
 };
@@ -34,7 +35,7 @@ class c_projective_camera : public c_camera
 {
 	typedef c_camera super;
 public:
-	c_projective_camera(const c_transform& cam_to_world, const c_transform& proj, const float screen_wnd[4], float lensr, float focal_d, render_target_ptr& film);
+	c_projective_camera(const c_transform& cam_to_world, const c_transform& proj, const float screen_wnd[4], float lensr, float focal_d, uint32 res_x, uint32 res_y);
 
 protected:
 	// Projection Transformation
@@ -49,8 +50,9 @@ protected:
 class c_perspective_camera : public c_projective_camera
 {
 	typedef c_projective_camera super; 
+
 public:
-	c_perspective_camera(const c_transform& cam_to_world, const float screen_wnd[4], float lensr, float focal_d, float fov, render_target_ptr& film);
+	c_perspective_camera(const c_transform& cam_to_world, const float screen_wnd[4], float lensr, float focal_d, float fov, uint32 res_x, uint32 res_y);
 	// virtual float generate_ray(const c_camera_sample& cam_sample, c_ray *ray) const; 
 
 	c_transform get_cam_to_world() const { return m_camera_to_world; }

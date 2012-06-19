@@ -1,11 +1,8 @@
-#The name of the project
 PROJECT(yart_gpu)
 
-#The CMake Minimum version that is required. The FindCUDA script
-#is distributed since version 2.8
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8)
 
-SET(BOOST_ROOT_DIR "" CACHE VARIABLE "")
+SET(BOOST_ROOT_DIR "" CACHE PATH "")
 SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${BOOST_ROOT_DIR})
 SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${BOOST_ROOT_DIR}/lib)
 

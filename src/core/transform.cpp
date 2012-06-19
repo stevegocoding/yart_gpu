@@ -115,3 +115,97 @@ void build_coord_system(const vector3f& v1, PARAM_OUT vector3f* v2, PARAM_OUT ve
 	*v3 = cross(v1, *v2);
 }
 */
+
+
+point3f c_transform::operator() (const point3f& pt) const
+{
+	float x = pt.x, y = pt.y, z = pt.z;
+
+	// The homogeneous representation for points is [x, y, z, 1]^T.
+	float xp = m.m[0][0]*x + m.m[0][1]*y + m.m[0][2]*z + m.m[0][3];
+	float yp = m.m[1][0]*x + m.m[1][1]*y + m.m[1][2]*z + m.m[1][3];
+	float zp = m.m[2][0]*x + m.m[2][1]*y + m.m[2][2]*z + m.m[2][3];
+	float wp = m.m[3][0]*x + m.m[3][1]*y + m.m[3][2]*z + m.m[3][3];
+
+	assert(wp != 0);
+	// Avoid division if possible.
+	if(wp == 1.f)
+		return point3f(xp, yp, zp);
+	else
+		return point3f(xp/wp, yp/wp, zp/wp);
+
+}
+
+void c_transform::operator() (const point3f& pt, point3f *out_pt) const 
+{
+	// Read out to allow inplace transformation.
+	float x = pt.x, y = pt.y, z = pt.z;
+
+	// The homogeneous representation for points is [x, y, z, 1]^T.
+	out_pt->x = m.m[0][0]*x + m.m[0][1]*y + m.m[0][2]*z + m.m[0][3];
+	out_pt->y = m.m[1][0]*x + m.m[1][1]*y + m.m[1][2]*z + m.m[1][3];
+	out_pt->z = m.m[2][0]*x + m.m[2][1]*y + m.m[2][2]*z + m.m[2][3];
+	float w    = m.m[3][0]*x + m.m[3][1]*y + m.m[3][2]*z + m.m[3][3];
+
+	assert(w != 0);
+	if(w != 1.f)
+		*out_pt /= w;
+} 
+
+vector3f c_transform::operator() (const vector3f& v) const
+{
+	float x = v.x, y = v.y, z = v.z;
+
+	// The homogeneous representation for vectors is [x, y, z, 0]^T. Therefore
+	// there is no need to compute the w coordinate. This simplifies the
+	// transform.
+	return vector3f(m.m[0][0]*x + m.m[0][1]*y + m.m[0][2]*z,
+		m.m[1][0]*x + m.m[1][1]*y + m.m[1][2]*z,
+		m.m[2][0]*x + m.m[2][1]*y + m.m[2][2]*z);
+}
+
+void c_transform::operator() (const vector3f& v, vector3f *out_vec) const
+{
+	// Read out to allow inplace transformation.
+	float x = v.x, y = v.y, z = v.z;
+
+	// The homogeneous representation for vectors is [x, y, z, 0]^T. Therefore
+	// there is no need to compute the w coordinate. This simplifies the
+	// transform.
+	out_vec->x = m.m[0][0]*x + m.m[0][1]*y + m.m[0][2]*z;
+	out_vec->y = m.m[1][0]*x + m.m[1][1]*y + m.m[1][2]*z;
+	out_vec->z = m.m[2][0]*x + m.m[2][1]*y + m.m[2][2]*z;
+}
+
+
+normal3f c_transform::operator() (const normal3f& n) const 
+{
+	float x = n.x, y = n.y, z = n.z;
+
+	// Note the swapped indices (for transpose).
+	return normal3f(inv_m.m[0][0]*x + inv_m.m[1][0]*y + inv_m.m[2][0]*z,
+		inv_m.m[0][1]*x + inv_m.m[1][1]*y + inv_m.m[2][1]*z,
+		inv_m.m[0][2]*x + inv_m.m[1][2]*y + inv_m.m[2][2]*z); 
+
+}
+
+void c_transform::operator() (const normal3f& n, normal3f *out_n) const
+{
+	// Read out to allow inplace transformation.
+	float x = n.x, y = n.y, z = n.z;
+
+	// Note the swapped indices (for transpose).
+	out_n->x = inv_m.m[0][0]*x + inv_m.m[1][0]*y + inv_m.m[2][0]*z;
+	out_n->y = inv_m.m[0][1]*x + inv_m.m[1][1]*y + inv_m.m[2][1]*z;
+	out_n->z = inv_m.m[0][2]*x + inv_m.m[1][2]*y + inv_m.m[2][2]*z;
+}
+
+
+c_ray c_transform::operator() (const c_ray& r) const 
+{
+	c_ray ret;
+	(*this)(r.o, &ret.o);
+	(*this)(r.d, &ret.d);
+	return ret;
+
+}

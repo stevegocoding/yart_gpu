@@ -1,8 +1,10 @@
 
 #include "cuda_defs.h"
+#include "cuda_utils.h"
+#include "cuda_rng.h"
 #include "camera.h" 
 #include "render_target.h"
-#include "ray_gen.h"
+#include "ray_tracer.h"
 
 struct float4x4_t
 {
@@ -21,8 +23,9 @@ void ivk_krnl_gen_primary_rays(const c_perspective_camera *camera,
 							uint32 num_samples_y,
 							PARAM_OUT c_ray_chunk *out_chunk)
 {
-	uint32 res_x = camera->get_render_target()->res_x(); 
-	uint32 res_y = camera->get_render_target()->res_y();
+	/*
+	uint32 res_x = camera->res_x(); 
+	uint32 res_y = camera->res_y();
 
 	c_transform cam_to_world = camera->get_cam_to_world(); 
 	c_transform raster_to_cam = camera->get_raster_to_cam(); 
@@ -43,13 +46,11 @@ void ivk_krnl_gen_primary_rays(const c_perspective_camera *camera,
 	uint32 num_pixels = res_x * res_y; 
 	
 	dim3 block_size = dim3(256, 1, 1); 
-	dim3 grid_size = dim3(cuda_div_up(num_pixels, block_size), 1); 
+	dim3 grid_size = dim3(cuda_div_up(num_pixels, block_size.x), 1); 
 	
 	c_cuda_rng& rng = get_rng_instance();
-	uint32 num_rand = rng.get_aligned_cnt(num_pixels); 
-	
-	
-	
+	uint32 num_rand = rng.get_aligned_cnt(num_pixels);  
+	*/
 
 
 }

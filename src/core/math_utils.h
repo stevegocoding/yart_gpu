@@ -39,6 +39,7 @@ inline bool quadratic(float A, float B, float C, float *t0, float *t1)
     
 }
 
+/*
 inline float lerp(float t, float v1, float v2)
 {
 	return (1.0f - t) * v1 + t * v2; 
@@ -63,6 +64,7 @@ inline float clamp(float val, float low, float high)
         else
             return val;
 }
+*/
 
 inline int floor2int(float val)
 {

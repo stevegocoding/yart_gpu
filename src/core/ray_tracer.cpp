@@ -1,5 +1,5 @@
 #include "thrust/device_malloc.h"
-#include "ray_gen.h"
+#include "ray_tracer.h"
 #include "camera.h"
 #include "render_target.h"
 
@@ -35,8 +35,8 @@ void c_ray_chunk::free_device_memory()
 
 void c_ray_pool::gen_primary_rays(const c_camera& cam)
 {
-	uint32 res_x = cam.get_render_target()->res_x(); 
-	uint32 res_y = cam.get_render_target()->res_y();
+	uint32 res_x = cam.res_x(); 
+	uint32 res_y = cam.res_y();
 
 	m_max_rays_per_chunk = res_x * res_y * m_spp_x * m_spp_y; 
 	
@@ -45,7 +45,7 @@ void c_ray_pool::gen_primary_rays(const c_camera& cam)
 		for (uint32 y = 0; y < m_spp_y; ++y)
 		{
 			c_ray_chunk *ray_chunk = find_alloc_chunk();
-			ivk_krnl_gen_primary_rays(&cam, x, m_spp_x, y, m_spp_y, ray_chunk); 
+			ivk_krnl_gen_primary_rays((c_perspective_camera*)&cam, x, m_spp_x, y, m_spp_y, ray_chunk); 
 		}
 	}
 }
