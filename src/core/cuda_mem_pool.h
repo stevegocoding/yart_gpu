@@ -52,17 +52,9 @@ public:
 	
 	// Returns the assigned size within this segment.
 	size_t get_assigned_size() const;
-	
-	/*
-	// Sets whether the chunk is removeable or not.
-	void SetRemoveable(bool b) { isRemoveable = b; }
-	
+
 	// Returns true when this chunk is obsolete and can be destroyed.
-	bool IsObsolete(time_t tCurrent) const;
-	
-	// Tests this chunk for errors, e.g. non disjoint segments.
-	bool Test(FILE* stream) const;
-	*/
+	bool is_obsolete(time_t current) const;
 
 	// If true, the chunk can be killed when not used for some time. Default: true.
 	bool is_removeable; 
@@ -101,6 +93,7 @@ public:
 	
 	cudaError_t release(void *d_buf); 
 
+	size_t get_allcated_size() const; 
 	
 private:
 	
@@ -129,14 +122,14 @@ private:
 	c_mem_chunk *m_pinned_host_chunk; 
 };
 
-//////////////////////////////////////////////////////////////////////////
-
-c_mem_pool& get_mem_pool()
+static c_mem_pool& get_mem_pool() 
 {
-	static c_mem_pool pool; 
-	
-	return pool; 
+	static c_mem_pool g_pool; 
+
+	return g_pool; 
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 template<typename T>
 class c_cuda_memory
@@ -152,6 +145,8 @@ public:
 	~c_cuda_memory();
 
 	T* get_buf_ptr() const { return d_buffer; }
+
+	T* get_write_buf_ptr() { return d_buffer; }
 
 	T read(size_t idx)
 	{

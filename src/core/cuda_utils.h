@@ -23,7 +23,11 @@
 // ---------------------------------------------------------------------
 cudaError_t cuda_check_error(bool bforce = true);
 
-
+// ---------------------------------------------------------------------
+/*
+	Divides \a count by \a chunkSize and adds 1 if there is some remainder.
+*/ 
+// ---------------------------------------------------------------------
 inline void __checkCudaErrors(cudaError err, const char *file, const int line )
 {
 	if(cudaSuccess != err)
@@ -33,21 +37,15 @@ inline void __checkCudaErrors(cudaError err, const char *file, const int line )
 	}
 }
 
-inline int cuda_div_up(int a, int b) 
-{
-	assert(b != 0);
-	return (a / b) + (a % b) ? 1 : 0;  
-}
+#define CUDA_DIVUP(count, chunkSize) ((count) / (chunkSize) + (((count) % (chunkSize))?1:0))
 
 // ---------------------------------------------------------------------
 /*
 	Return the aligned size in bytes for a given alignment
 */ 
 // ---------------------------------------------------------------------
-inline int cuda_align_bytes(int size, int alignment)
-{
-	return (size % alignment == 0) ? size : (size + alignment - (size % alignment));
-}
+#define CUDA_ALIGN_BYTES(size, alignment) \
+	( ( ((size) % (alignment)) == 0 ) ? (size) : ((size) + (alignment) - ((size) % (alignment))) )
 
 
 // ---------------------------------------------------------------------
@@ -55,7 +53,5 @@ inline int cuda_align_bytes(int size, int alignment)
 	Return the aligned element count for a given alignment
 */ 
 // ---------------------------------------------------------------------
-inline int cuda_align_ex(int count, int alignment)
-{
-	return (count % alignment) ? count : (count + alignment - (count % alignment));
-}
+#define CUDA_ALIGN_EX(count, alignment) \
+	( ( ((count) % (alignment)) == 0 ) ? (count) : ((count) + (alignment) - ((count) % (alignment))) )

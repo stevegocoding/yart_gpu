@@ -21,10 +21,11 @@ public:
 	void alloc_device_memory(); 
 	void free_device_memory();
 
-	thrust::device_ptr<float4> d_origins_array; 
-	thrust::device_ptr<float4> d_dirs_array;
-	thrust::device_ptr<uint32> d_pixels_array;
-	
+	float4 *d_origins_array; 
+	float4 *d_dirs_array;
+	uint32 *d_pixels_array;
+	float4 *d_weights_array; 
+
 	uint32 depth; 
 	uint32 num_rays; 
 	uint32 max_rays;

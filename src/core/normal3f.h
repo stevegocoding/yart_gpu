@@ -117,11 +117,6 @@ inline c_normal3f operator*(float f, const c_normal3f& n)
 	return n * f;
 }
 
-inline c_normal3f normalize(const c_normal3f& n)
-{
-	return n / n.length();
-}
-
 inline float dot(const c_normal3f& n1, const c_normal3f& n2)
 {
 	return n1.x * n2.x + n1.y * n2.y + n1.z * n2.z;

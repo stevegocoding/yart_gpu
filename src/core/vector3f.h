@@ -118,7 +118,7 @@ inline c_vector3f operator*(float f, const c_vector3f& v)
 }
 
 
-inline c_vector3f normalize(const c_vector3f& v)
+inline c_vector3f normalize_vec(const c_vector3f& v)
 {
 	return v / v.length();
 }

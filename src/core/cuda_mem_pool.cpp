@@ -47,6 +47,7 @@ void *c_mem_chunk::request(size_t size_bytes, size_t alignment, const std::strin
 	size_t offset, free_to;
 	c_assigned_segment *prev = NULL; 
 
+	// If there is already more than ONE segments
 	for (it = assigned_segs.begin(); it != assigned_segs.end(); ++it)
 	{
 		c_assigned_segment *p = (c_assigned_segment*)&(*it);
@@ -54,7 +55,7 @@ void *c_mem_chunk::request(size_t size_bytes, size_t alignment, const std::strin
 		// Check space *before* current segment.
 		offset = 0; 
 		if (prev != NULL) 
-			offset = cuda_align_bytes(prev->offset + prev->size_bytes, alignment);
+			offset = CUDA_ALIGN_BYTES(prev->offset + prev->size_bytes, alignment);
 		free_to = p->offset;
 		
 		if (free_to > offset && free_to - offset >= size_bytes)
@@ -68,12 +69,12 @@ void *c_mem_chunk::request(size_t size_bytes, size_t alignment, const std::strin
 		prev = p; 
 	}
 
-	// Now check space after the last segment or from the beginning (if no segments).
+	// Now check space after the last segment or from the beginning
 	offset = 0; 
 	if (assigned_segs.size())
 	{
 		c_assigned_segment *last = &assigned_segs.back(); 
-		offset = cuda_align_bytes(last->offset + last->size_bytes, alignment); 
+		offset = CUDA_ALIGN_BYTES(last->offset + last->size_bytes, alignment); 
 	}
 	free_to = chunk_size;
 	if (free_to > offset && free_to - offset >= size_bytes)
@@ -97,8 +98,7 @@ size_t c_mem_chunk::release(void* d_buffer)
 		c_assigned_segment *p = (c_assigned_segment*)&(*it); 
 		
 		if (p->d_buf == d_buffer)
-		{
-			
+		{	
 			size_t freed_bytes = p->size_bytes; 
 			assigned_segs.erase(it); 
 			last_use = time(NULL); 
@@ -107,6 +107,24 @@ size_t c_mem_chunk::release(void* d_buffer)
 	}
 	
 	return 0; 
+}
+
+bool c_mem_chunk::is_obsolete(time_t current) const
+{
+	return is_removeable && assigned_segs.size() == 0 && (current - last_use >= 5);
+}
+
+size_t c_mem_chunk::get_assigned_size() const 
+{
+	size_t total = 0; 
+
+	std::list<c_assigned_segment>::const_iterator it; 
+	for (it = assigned_segs.begin(); it != assigned_segs.end(); ++it)
+	{
+		c_assigned_segment *p = (c_assigned_segment*)&(*it);
+		total += p->size_bytes; 
+	}
+	return total; 
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -160,6 +178,7 @@ cudaError_t c_mem_pool::initialise(size_t init_size, size_t pinned_host_size)
 	}
 
 	m_is_inited = true; 
+	
 	return err; 
 }
 
@@ -200,7 +219,7 @@ cudaError_t c_mem_pool::request(void **d_buf, size_t size, const std::string& ca
 				break; 
 			}
 		}
-
+		
 		if (done)
 			break; 
 
@@ -217,6 +236,7 @@ cudaError_t c_mem_pool::request(void **d_buf, size_t size, const std::string& ca
 			break; 
 		}
 		
+		// No more device memory available 
 		if (free < size)
 		{
 			err = cudaErrorMemoryValueTooLarge; 
@@ -248,7 +268,6 @@ cudaError_t c_mem_pool::request(void **d_buf, size_t size, const std::string& ca
 		}
 		
 		err = alloc_chunk(new_size); 
-		
 		if (err != cudaSuccess)
 			break; 
 
@@ -328,10 +347,22 @@ cudaError_t c_mem_pool::alloc_chunk(size_t size_bytes)
 	return err; 
 }
 
+size_t c_mem_pool::get_allcated_size() const 
+{
+	if (!m_is_inited)
+		return 0; 
 
+	size_t count = 0; 
 
-
-
+	chunks_list::const_iterator it; 
+	for (it = m_device_chunks.begin(); it != m_device_chunks.end(); ++it)
+	{
+		count += (*it)->chunk_size; 
+	}
+	
+	return count; 
+}
 
 //////////////////////////////////////////////////////////////////////////
+
 

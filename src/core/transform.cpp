@@ -72,8 +72,8 @@ c_transform make_look_at_lh(const point3f& pos, const point3f& look, const vecto
 	m[3][3] = 1;
 
 	// Initialize first three columns of viewing matrix
-	vector3f dir = normalize(look - pos); 
-	vector3f left = normalize(cross(normalize(up),dir)); 
+	vector3f dir = normalize_vec(look - pos); 
+	vector3f left = normalize_vec(cross(normalize_vec(up),dir)); 
 	vector3f new_up = cross(dir, left); 
 
 	m[0][0] = left.x; 

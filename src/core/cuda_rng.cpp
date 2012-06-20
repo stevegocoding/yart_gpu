@@ -58,8 +58,8 @@ cudaError_t c_cuda_rng::gen_rand(PARAM_OUT float *d_rand, int count)
 unsigned int c_cuda_rng::get_aligned_cnt(unsigned int count)
 {
 	// Taken from SDK 3.0 sample.
-	unsigned int numPerRNG = cuda_div_up(count, MT_RNG_COUNT);
-	unsigned int numAligned = cuda_align_ex(numPerRNG, 2);
+	unsigned int numPerRNG = CUDA_DIVUP(count, MT_RNG_COUNT);
+	unsigned int numAligned = CUDA_ALIGN_EX(numPerRNG, 2);
 
 	return numAligned * MT_RNG_COUNT; 	
 }

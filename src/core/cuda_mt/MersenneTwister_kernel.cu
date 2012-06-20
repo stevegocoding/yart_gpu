@@ -168,7 +168,8 @@ void MersenneTwisterGPUSeed(unsigned int seed)
         MT[i]      = h_MT[i];
         MT[i].seed = seed;
     }
-    CUDA_SAFE_CALL_NO_SYNC(cudaMemcpyToSymbol(ds_MT, MT, sizeof(h_MT)));
+	cudaError_t err = cudaMemcpyToSymbol(ds_MT, MT, sizeof(h_MT));
+	assert(err == cudaSuccess);
 
     free(MT);
 }
