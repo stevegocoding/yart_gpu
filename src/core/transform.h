@@ -25,7 +25,7 @@ public:
 
 	explicit c_transform(matrix44f& mat)
 		: m(mat)
-		, inv_m(inverse(mat))
+		, inv_m(mat.inverse())
 	{}
 
 	explicit c_transform(const float mat[4][4])
@@ -67,9 +67,6 @@ private:
 	matrix44f m; 
 	matrix44f inv_m; 
 };
-
-
-
 
 c_transform make_translate(const vector3f& trans);
 c_transform make_scale(float sx, float sy, float sz);

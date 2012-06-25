@@ -1,27 +1,27 @@
+#ifndef __app_h__
+#define __app_h__
+
 #pragma once 
 
-#include "wx/wx.h"
-#include "wx/glcanvas.h"
-
-class c_gl_canvas : public wxGLCanvas
-{
-public:
-	c_gl_canvas(wxFrame *parent);
-	void on_paint(wxPaintEvent& event); 
+#include "wx/wx.h" 
 
 
-protected: 
-	DECLARE_EVENT_TABLE();
-	void render();
-	
-};
 
-//////////////////////////////////////////////////////////////////////////
-
+class c_main_frame; 
 class c_wx_app : public wxApp
 {
-public:
-	virtual bool OnInit();		
+
+
+private:
+	c_main_frame *m_main_frame; 
+	
+	virtual bool OnInit();
+	virtual int OnExit(); 
+	virtual int OnRun();
 	
 };
 
+
+
+
+#endif // __app_h__

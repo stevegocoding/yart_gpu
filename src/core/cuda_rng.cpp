@@ -9,15 +9,12 @@ extern "C"
 void MersenneTwisterGPUSeed(unsigned int seed);
 
 extern "C"
-void MersenneTwisterGPU(float* d_outRand, int nPerRNG);
+void MersenneTwisterGPU(float* d_outRand, int nPerRNG); 
 
-static const std::string fn = "MersenneTwister.dat";
 
 c_cuda_rng::c_cuda_rng()
 	: m_is_inited(false)
 {
-	bool res = init(fn); 
-	assert(res); 
 }
 
 bool c_cuda_rng::init(const std::string& file_name)
@@ -65,7 +62,7 @@ unsigned int c_cuda_rng::get_aligned_cnt(unsigned int count)
 }
 
 
-c_cuda_rng& get_rng_instance()
+c_cuda_rng& c_cuda_rng::get_instance()
 {
 	static c_cuda_rng cuda_rng; 
 

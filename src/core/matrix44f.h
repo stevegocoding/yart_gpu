@@ -64,7 +64,7 @@ public:
 	
 	float get_elem(int row, int col) const
 	{
-		assert(row > 0 && row < 4 && col > 0 && col < 4);
+		assert(row >= 0 && row < 4 && col >= 0 && col < 4);
 		return m[row][col];
 	}
 	
@@ -73,8 +73,6 @@ public:
 
 	c_matrix44f inverse() const;
 };
-
-c_matrix44f inverse(const c_matrix44f& mat);
 
 typedef c_matrix44f matrix44f; 
 

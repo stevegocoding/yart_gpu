@@ -58,7 +58,8 @@ c_transform make_perspective_proj(float fov, float near, float far)
 			0, 0, 1, 0); 
 
 	float inv_tan_angle = 1.0f / tanf(radians(fov)/2);
-	return  make_scale(inv_tan_angle, inv_tan_angle, 1) * c_transform(m);
+	c_transform t(m);
+	return  make_scale(inv_tan_angle, inv_tan_angle, 1) * t;
 }
 
 c_transform make_look_at_lh(const point3f& pos, const point3f& look, const vector3f& up)
@@ -92,10 +93,9 @@ c_transform make_look_at_lh(const point3f& pos, const point3f& look, const vecto
 	m[3][2] = 0.0f; 
 	
 	matrix44f cam_to_world(m);
-	matrix44f world_to_cam = inverse(cam_to_world);
+	matrix44f world_to_cam = cam_to_world.inverse();
 	
-	return c_transform(world_to_cam, cam_to_world);
-	
+	return c_transform(world_to_cam, cam_to_world); 
 }
 
 /*

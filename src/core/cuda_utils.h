@@ -4,36 +4,18 @@
 #include <cutil_inline.h>
 #include <cutil_math.h>
 #include <assert.h>
-
-#ifdef _DEBUG
-	#define CUDA_CHECK_ERROR CUDA_SAFE_CALL_NO_SYNC(cuda_check_error(true))
-#else
-	#define CUDA_CHECK_ERROR CUDA_SAFE_CALL_NO_SYNC(cuda_check_error(false))
-#endif
+#include "utils.h"
+#include "cuda_defs.h" 
 
 // This will output the proper CUDA error strings in the event that a CUDA host call returns an error
-#define check_cuda_error(err)  __checkCudaErrors (err, __FILE__, __LINE__)
+#define cuda_safe_call_no_sync(err)	_cuda_safe_call_no_sync(err, __FILE__, __LINE__)
 
-
-
-// ---------------------------------------------------------------------
-/*
-	Checks for pending errors and returns them.
-*/ 
-// ---------------------------------------------------------------------
-cudaError_t cuda_check_error(bool bforce = true);
-
-// ---------------------------------------------------------------------
-/*
-	Divides \a count by \a chunkSize and adds 1 if there is some remainder.
-*/ 
-// ---------------------------------------------------------------------
-inline void __checkCudaErrors(cudaError err, const char *file, const int line )
+inline void _cuda_safe_call_no_sync(cudaError err, const char *file, const int line)
 {
-	if(cudaSuccess != err)
+	if (cudaSuccess != err)
 	{
-		fprintf(stderr, "%s(%i) : CUDA Runtime API error %d: %s.\n",file, line, (int)err, cudaGetErrorString( err ) );
-		exit(-1);        
+		yart_log_message("%s(%i) : CUDA Runtime API error : %s.\n", file, line, cudaGetErrorString(err));
+		assert(false); 
 	}
 }
 
@@ -55,3 +37,10 @@ inline void __checkCudaErrors(cudaError err, const char *file, const int line )
 // ---------------------------------------------------------------------
 #define CUDA_ALIGN_EX(count, alignment) \
 	( ( ((count) % (alignment)) == 0 ) ? (count) : ((count) + (alignment) - ((count) % (alignment))) )
+
+
+//////////////////////////////////////////////////////////////////////////
+
+extern "C++"
+template <class V, class S>
+void kernel_wrapper_scale_vector_array(V *d_vec, uint32 count, S scalar); 

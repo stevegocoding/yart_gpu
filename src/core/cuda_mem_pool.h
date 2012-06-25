@@ -77,13 +77,13 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class c_mem_pool 
+class c_cuda_mem_pool 
 {
 	typedef std::list<c_mem_chunk*> chunks_list;
 
 public:
-	c_mem_pool();
-	~c_mem_pool();
+	c_cuda_mem_pool();
+	~c_cuda_mem_pool();
 
 	cudaError_t initialise(size_t init_size, size_t pinned_host_size);
 
@@ -94,6 +94,11 @@ public:
 	cudaError_t release(void *d_buf); 
 
 	size_t get_allcated_size() const; 
+
+	size_t get_tex_alignment() const { return m_tex_alignment; }
+
+
+	static c_cuda_mem_pool& get_instance();
 	
 private:
 	
@@ -122,12 +127,6 @@ private:
 	c_mem_chunk *m_pinned_host_chunk; 
 };
 
-static c_mem_pool& get_mem_pool() 
-{
-	static c_mem_pool g_pool; 
-
-	return g_pool; 
-}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -138,11 +137,11 @@ public:
 	c_cuda_memory(size_t num_elems, const std::string& cat = "Temporary", size_t alignment = 64)
 		: m_num_elems(num_elems)
 	{
-		c_mem_pool& pool = get_mem_pool(); 
+		c_cuda_mem_pool& pool = c_cuda_mem_pool::get_instance(); 
 		pool.request((void**)&d_buffer, num_elems*sizeof(T), cat, alignment);
 	}
 	
-	~c_cuda_memory();
+	~c_cuda_memory() {}
 
 	T* get_buf_ptr() const { return d_buffer; }
 

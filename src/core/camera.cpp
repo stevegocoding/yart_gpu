@@ -48,7 +48,7 @@ float c_perspective_camera::generate_ray(const c_camera_sample& cam_sample, c_ra
 	vector3f pt_sample_cam = m_raster_to_camera.transform_pt(pt_sample); 
 
 	// Create the ray according to the sample
-	*ray = c_ray(vector3f(0,0,0), normalize(pt_sample_cam)); 
+	*ray = c_ray(vector3f(0,0,0), normalize(pt_sample_cam));
 
 	// @TODO: Modify the ray for depth of field
 
@@ -58,3 +58,4 @@ float c_perspective_camera::generate_ray(const c_camera_sample& cam_sample, c_ra
 	return 1.0f;
 }
 */ 
+

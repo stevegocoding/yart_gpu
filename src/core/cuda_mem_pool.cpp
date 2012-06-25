@@ -129,19 +129,19 @@ size_t c_mem_chunk::get_assigned_size() const
 
 //////////////////////////////////////////////////////////////////////////
 
-c_mem_pool::c_mem_pool()
+c_cuda_mem_pool::c_cuda_mem_pool()
 	: m_is_inited(false)
 	, m_num_bytes_assigned(0)
 	, m_pinned_host_chunk(NULL)
 {
 }
 
-c_mem_pool::~c_mem_pool()
+c_cuda_mem_pool::~c_cuda_mem_pool()
 {
 	free(); 
 }
 
-cudaError_t c_mem_pool::initialise(size_t init_size, size_t pinned_host_size)
+cudaError_t c_cuda_mem_pool::initialise(size_t init_size, size_t pinned_host_size)
 {
 	if (m_is_inited)
 	{
@@ -182,7 +182,7 @@ cudaError_t c_mem_pool::initialise(size_t init_size, size_t pinned_host_size)
 	return err; 
 }
 
-cudaError_t c_mem_pool::request(void **d_buf, size_t size, const std::string& cat /* = "general" */, size_t alignment /* = 64 */)
+cudaError_t c_cuda_mem_pool::request(void **d_buf, size_t size, const std::string& cat /* = "general" */, size_t alignment /* = 64 */)
 {
 	if (!m_is_inited)
 	{
@@ -226,7 +226,7 @@ cudaError_t c_mem_pool::request(void **d_buf, size_t size, const std::string& ca
 		// When getting here, there is no more space left in our chunks.
 		// Therefore allocate a new device memory chunk.
 
-		// Get the amout of free memory first. Ensure we still have enough memory left.
+		// Get the amount of free memory first. Ensure we still have enough memory left.
 		// Not available in device emu mode!
 		size_t free, total; 
 		CUresult res = cuMemGetInfo(&free, &total); 
@@ -240,6 +240,7 @@ cudaError_t c_mem_pool::request(void **d_buf, size_t size, const std::string& ca
 		if (free < size)
 		{
 			err = cudaErrorMemoryValueTooLarge; 
+			yart_log_message("There is no more device memory");
 			break; 
 		}
 		
@@ -289,12 +290,12 @@ cudaError_t c_mem_pool::request(void **d_buf, size_t size, const std::string& ca
 	return err; 
 }
 
-cudaError_t c_mem_pool::request_tex(void **d_buf, size_t size, const std::string& cat /* = "general" */)
+cudaError_t c_cuda_mem_pool::request_tex(void **d_buf, size_t size, const std::string& cat /* = "general" */)
 {
 	return request(d_buf, size, cat, m_tex_alignment);
 }
 
-cudaError_t c_mem_pool::release(void *d_buf)
+cudaError_t c_cuda_mem_pool::release(void *d_buf)
 {
 	if (!m_is_inited)
 	{
@@ -320,7 +321,7 @@ cudaError_t c_mem_pool::release(void *d_buf)
 	return err;
 }
 
-void c_mem_pool::free()
+void c_cuda_mem_pool::free()
 {
 	if (!m_is_inited)
 		return; 
@@ -336,7 +337,7 @@ void c_mem_pool::free()
 	m_is_inited = false; 
 }
 
-cudaError_t c_mem_pool::alloc_chunk(size_t size_bytes)
+cudaError_t c_cuda_mem_pool::alloc_chunk(size_t size_bytes)
 {
 	assert(size_bytes > 0);
 	
@@ -347,7 +348,7 @@ cudaError_t c_mem_pool::alloc_chunk(size_t size_bytes)
 	return err; 
 }
 
-size_t c_mem_pool::get_allcated_size() const 
+size_t c_cuda_mem_pool::get_allcated_size() const 
 {
 	if (!m_is_inited)
 		return 0; 
@@ -361,6 +362,12 @@ size_t c_mem_pool::get_allcated_size() const
 	}
 	
 	return count; 
+}
+
+c_cuda_mem_pool& c_cuda_mem_pool::get_instance()
+{
+	static c_cuda_mem_pool mem_pool; 
+	return mem_pool;
 }
 
 //////////////////////////////////////////////////////////////////////////

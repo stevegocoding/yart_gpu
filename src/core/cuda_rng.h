@@ -21,11 +21,13 @@ public:
 	
 	unsigned int get_aligned_cnt(unsigned int count);
 	 
+	static c_cuda_rng& get_instance();
+	
 private:
 	bool m_is_inited;
 	
 };
 
-c_cuda_rng& get_rng_instance();
+
 
 #endif // __cuda_mt_h__

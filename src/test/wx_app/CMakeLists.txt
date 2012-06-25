@@ -2,10 +2,12 @@ set(TARGET wx_app)
 project(${TARGET})
 
 set(UI_FILES
-	cuda_canvas.cpp
-	cuda_canvas.h
 	app.cpp
 	app.h
+	cuda_canvas.cpp
+	cuda_canvas.h
+	main_frame.cpp
+	main_frame.h
 	)
 
 if(WIN32)
@@ -33,6 +35,10 @@ target_link_libraries(${TARGET} debug libyartgpu_d.lib ${wxWidgets_LIBRARIES})
 target_link_libraries(${TARGET} optimized libyartgpu.lib ${wxWidgets_LIBRARIES})
 target_link_libraries(${TARGET} debug assimp_d.lib)
 target_link_libraries(${TARGET} optimized assimp.lib)
+target_link_libraries(${TARGET} debug glew32.lib)
+target_link_libraries(${TARGET} optimized glew32.lib)
+target_link_libraries(${TARGET} debug cudart.lib)
+target_link_libraries(${TARGET} optimized cudart.lib)
 
 # Installation
 install(TARGETS ${TARGET} RUNTIME DESTINATION bin/${TARGET})

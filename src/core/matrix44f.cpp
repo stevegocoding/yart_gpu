@@ -215,12 +215,4 @@ c_matrix44f c_matrix44f::inverse() const
 			mInv.m[i][j] = dst[4*i + j] * det;
 
 	return mInv;
-}
-
-c_matrix44f inverse(const c_matrix44f& mat)
-{
-	c_matrix44f temp = mat;
-	temp.inverse(); 
-
-	return temp; 
-}
+} 

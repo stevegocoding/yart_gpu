@@ -1,42 +1,24 @@
+#ifndef __utils_h__
+#define __utils_h__
+
 #pragma once
 
+#include <vector_types.h>
+#include <iostream>
+
+void open_console_wnd();
+
+void yart_log_message(const char *str, ...);
+
+
+// ---------------------------------------------------------------------
 /*
-void MNFatal(const char *strFormat, ...)
-{
-	va_list args;
-	va_start(args, strFormat);
-	vfprintf(stderr, strFormat, args);
-	wxVLogFatalError(strFormat, args);
-	va_end(args);
-}
+	Debug Utilities
+*/ 
+// ---------------------------------------------------------------------
 
-void MNError(const char *strFormat, ...)
-{
-	va_list args;
-	va_start(args, strFormat);
-	vfprintf(stderr, strFormat, args);
-	fprintf(stderr, "\n");
-	wxVLogError(strFormat, args);
-	va_end(args);
-}
+void print_float3(std::ostream& os, float3& vec, int prec = 4, int width = 8);
+void print_float4(std::ostream& os, float4& vec, int prec = 4, int width = 8);
 
-void MNWarning(const char *strFormat, ...)
-{
-	va_list args;
-	va_start(args, strFormat);
-	vfprintf(stderr, strFormat, args);
-	fprintf(stderr, "\n");
-	wxVLogWarning(strFormat, args);
-	va_end(args);
-}
 
-void MNMessage(const char *strFormat, ...)
-{
-	va_list args;
-	va_start(args, strFormat);
-	vfprintf(stderr, strFormat, args);
-	fprintf(stderr, "\n");
-	wxVLogMessage(strFormat, args);
-	va_end(args);
-}
-*/
+#endif // __utils_h__

@@ -29,12 +29,16 @@ set(CORE_FILES
 	cuda_rng.h
 	cuda_utils.cpp
 	cuda_utils.h
+	kernel_data.cpp
+	kernel_data.h
 	math_utils.cpp
 	math_utils.h
 	matrix44f.cpp
 	matrix44f.h
 	normal3f.cpp
 	normal3f.h
+	obj_makers.cpp
+	obj_makers.h
 	point3f.cpp
 	point3f.h
 	vector3f.cpp
@@ -46,17 +50,23 @@ set(CORE_FILES
 	ray_tracer.h
 	render_target.cpp
 	render_target.h
+	renderer.cpp
+	renderer.h
 	sampler.cpp
 	sampler.h
 	scene.cpp
 	scene.h
 	transform.cpp
 	transform.h
-	main.cpp
+	utils.cpp
+	utils.h
+	#main.cpp
 	)
 
 set(GPU_FILES
+	cuda_utils.cu
 	ray_gen.cu
+	ray_tracing.cu
 	vec_add.cu
 	)
 
@@ -72,10 +82,20 @@ set(SRC_FILES
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
-#cuda_add_library(${LIB_TARGET} ${LIB_TYPE} ${SRC_FILES})
-cuda_add_executable(${LIB_TARGET} ${SRC_FILES})
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -arch=sm_20)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -ftz=true)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -prec-div=false)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -prec-sqrt=false)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -G0)
+
+cuda_add_library(${LIB_TARGET} 
+		 ${LIB_TYPE} 
+		 ${SRC_FILES}
+		 OPTIONS ${GENCODE_SM20} ${CUDA_DEBUG})
+		 
+#cuda_add_executable(${LIB_TARGET} ${SRC_FILES})
 
 set_target_properties(${LIB_TARGET} PROPERTIES DEBUG_POSTFIX "_d") 
 target_link_libraries(${LIB_TARGET} debug "${DEP_LIBS_DEBUG}")
 target_link_libraries(${LIB_TARGET} optimized "${DEP_LIBS_RELEASE}")
-#install(TARGETS ${LIB_TARGET} ARCHIVE DESTINATION lib/)
+install(TARGETS ${LIB_TARGET} ARCHIVE DESTINATION lib/)

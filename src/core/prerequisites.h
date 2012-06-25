@@ -10,8 +10,10 @@
 
 // Geometry Classes
 class c_ray;
+class c_ray_pool; 
 class c_transform;
 class c_camera; 
+class c_perspective_camera; 
 class c_render_target;
 
 #pragma warning (disable : 4305) // double constant assigned to float

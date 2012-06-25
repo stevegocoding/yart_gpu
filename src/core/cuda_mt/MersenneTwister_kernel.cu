@@ -194,7 +194,7 @@ void MersenneTwisterGPU(float* d_outRand, int nPerRNG)
 	// 32 * 128 = MT_RNG_COUNT = 4096. See SDK 3.0 sample.
 	RandomGPU<<<32, 128>>>(d_outRand, nPerRNG);
 	// MNCUDA_CHECKERROR;
-	CUDA_CHECK_ERROR;
+	// CUDA_CHECK_ERROR;
 
 	//BoxMullerGPU<<<32, 128>>>(d_outRand, nPerRNG);
 }
