@@ -42,4 +42,5 @@ link_directories(${PROJECT_SOURCE_DIR}/deps/lib/debug)
 link_directories(${PROJECT_SOURCE_DIR}/deps/lib/release)
 
 #Adding src directory to the project
+add_subdirectory(data)
 ADD_SUBDIRECTORY(src)

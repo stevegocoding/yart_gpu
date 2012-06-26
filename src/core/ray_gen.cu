@@ -105,6 +105,7 @@ __global__ void kernel_gen_primary_rays(uint32 res_x, uint32 res_y,
 		
 		// Generate rays 
 		float3 pt_raster; 
+		
 		if (inv_spp_x * inv_spp_y < 1.0f)			// if multi-sampled per pixel
 			pt_raster = make_float3((float)x + rnd1, (float)y + rnd2, 0.0f); 
 		else 

@@ -5,6 +5,7 @@
 #include "camera.h"
 #include "ray_tracer.h"
 #include "utils.h"
+#include "cuda_rng.h"
 
 uint32 g_screen_width = 16; 
 uint32 g_screen_height = 16; 
@@ -13,6 +14,8 @@ ray_pool_ptr g_ray_pool;
 
 boost::shared_array<float4> h_ray_origins;
 boost::shared_array<float4> h_ray_dirs;
+
+static const std::string mt_dat_file = "../data/mt/MersenneTwister.dat";
 
 void initialise()
 {
@@ -23,7 +26,7 @@ void initialise()
 	mem_pool.initialise(256*1024*1024, 256*1024);
 	
 	// Create camera 
-	c_point3f eye_pos(0.9f, 0.9f, 0.9f);
+	c_point3f eye_pos(0.0f, 0.0f, -0.5f);
 	c_point3f look_at(0.f, 0.0f, 0.0f);
 	c_vector3f up(0.0f, 1.0f, 0.0f); 
 	float wnd[4] = {-1.333f, 1.333f, -1.0f, 1.0f}; 
@@ -35,6 +38,13 @@ void initialise()
 	// Create ray pool
 	g_ray_pool = make_ray_pool(256*256, 1, 1); 
 
+	// Init CUDA MT
+	srand(1337); 
+	c_cuda_rng& rng = c_cuda_rng::get_instance();
+	bool ret = rng.init(mt_dat_file); 
+	assert(ret); 
+	ret = rng.seed(1337);
+	assert(ret); 
 }
 
 void print_ray_pool(ray_pool_ptr ray_pool)
