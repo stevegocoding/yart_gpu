@@ -8,8 +8,7 @@
 
 struct c_ray_chunk
 {
-	explicit c_ray_chunk(uint32 _max_rays);
-	~c_ray_chunk();
+	explicit c_ray_chunk(uint32 _max_rays); 
 	
 	void alloc_device_memory(); 
 	void free_device_memory();

@@ -6,8 +6,8 @@
 #include "ray_tracer.h"
 #include "utils.h"
 
-uint32 g_screen_width = 64; 
-uint32 g_screen_height = 64; 
+uint32 g_screen_width = 16; 
+uint32 g_screen_height = 16; 
 perspective_cam_ptr g_cam; 
 ray_pool_ptr g_ray_pool;
 
@@ -33,7 +33,7 @@ void initialise()
 	g_cam = make_perspective_cam(cam_to_world, wnd, 0, 0, 60, g_screen_width, g_screen_height);
 
 	// Create ray pool
-	g_ray_pool = make_ray_pool(64*64, 1, 1); 
+	g_ray_pool = make_ray_pool(256*256, 1, 1); 
 
 }
 
@@ -76,6 +76,8 @@ int main(int argc, char **argv)
 	// Print rays
 	print_ray_pool(g_ray_pool);
 	
- 
+	g_ray_pool.reset();
+	g_cam.reset();
+
 	return 0; 
 }

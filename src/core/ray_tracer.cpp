@@ -2,6 +2,7 @@
 #include "camera.h"
 #include "render_target.h"
 #include "cuda_mem_pool.h"
+#include "cuda_utils.h"
 
 extern "C"
 void ivk_krnl_gen_primary_rays(const c_perspective_camera *camera, 
@@ -9,7 +10,7 @@ void ivk_krnl_gen_primary_rays(const c_perspective_camera *camera,
 	uint32 num_samples_x, 
 	uint32 sample_idx_y, 
 	uint32 num_samples_y,
-	PARAM_OUT c_ray_chunk *out_chunk); 
+	PARAM_OUT c_ray_chunk& out_chunk); 
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -18,12 +19,6 @@ c_ray_chunk::c_ray_chunk(uint32 _max_rays)
 	, num_rays(0)
 	, max_rays(_max_rays)
 {
-	alloc_device_memory();
-}
-
-c_ray_chunk::~c_ray_chunk()
-{
-	free_device_memory(); 
 }
 
 void c_ray_chunk::alloc_device_memory()
@@ -31,11 +26,18 @@ void c_ray_chunk::alloc_device_memory()
 	// Allocate device memory 
 	
 	c_cuda_mem_pool& pool = c_cuda_mem_pool::get_instance();
-	pool.request((void**)&d_origins_array, max_rays*sizeof(float4), "ray_pool", 256);
-	pool.request((void**)&d_dirs_array, max_rays*sizeof(float4), "ray_pool", 256); 
+	size_t align = 16;
+	pool.request((void**)&d_origins_array, max_rays*sizeof(float4), "ray_pool", align);
+	pool.request((void**)&d_dirs_array, max_rays*sizeof(float4), "ray_pool", align); 
 	pool.request((void**)&d_pixels_array, max_rays*sizeof(uint32), "ray_pool"); 
-	pool.request((void**)&d_weights_array, max_rays*sizeof(float4), "ray_pool",256); 
+	pool.request((void**)&d_weights_array, max_rays*sizeof(float4), "ray_pool",align); 
 	
+	/*
+	cuda_safe_call_no_sync(cudaMalloc((void**)&d_origins_array, max_rays*sizeof(float4)));
+	cuda_safe_call_no_sync(cudaMalloc((void**)&d_dirs_array, max_rays*sizeof(float4)));
+	cuda_safe_call_no_sync(cudaMalloc((void**)&d_pixels_array, max_rays*sizeof(uint32)));
+	cuda_safe_call_no_sync(cudaMalloc((void**)&d_weights_array, max_rays*sizeof(float4))); 
+	*/
 }
 
 void c_ray_chunk::free_device_memory()
@@ -47,6 +49,13 @@ void c_ray_chunk::free_device_memory()
 	pool.release(d_dirs_array); 
 	pool.release(d_pixels_array);
 	pool.release(d_weights_array); 
+	
+	/*
+	cuda_safe_call_no_sync(cudaFree(d_origins_array)); 
+	cuda_safe_call_no_sync(cudaFree(d_dirs_array)); 
+	cuda_safe_call_no_sync(cudaFree(d_pixels_array)); 
+	cuda_safe_call_no_sync(cudaFree(d_weights_array)); 
+	*/
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -85,7 +94,7 @@ void c_ray_pool::gen_primary_rays(const c_camera *cam)
 		for (uint32 y = 0; y < m_spp_y; ++y)
 		{
 			c_ray_chunk *ray_chunk = find_alloc_chunk();
-			ivk_krnl_gen_primary_rays((c_perspective_camera*)cam, x, m_spp_x, y, m_spp_y, ray_chunk); 
+			ivk_krnl_gen_primary_rays((c_perspective_camera*)cam, x, m_spp_x, y, m_spp_y, *ray_chunk); 
 		}
 	}
 }
@@ -137,6 +146,7 @@ c_ray_chunk* c_ray_pool::find_alloc_chunk()
 c_ray_chunk* c_ray_pool::alloc_chunk(uint32 max_rays)
 {
 	c_ray_chunk *chunk = new c_ray_chunk(max_rays); 
+	chunk->alloc_device_memory();
 	m_ray_chunks.push_back(chunk);
 
 	return chunk;
@@ -172,6 +182,7 @@ void c_ray_pool::destroy()
 	for (size_t i = 0; i < m_ray_chunks.size(); ++i)
 	{
 		c_ray_chunk *chunk = m_ray_chunks[i];
+		chunk->free_device_memory();
 		SAFE_DELETE(chunk);
 	}
 	m_ray_chunks.clear();
