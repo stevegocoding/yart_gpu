@@ -20,6 +20,8 @@ set(CUDA_MT_FILES
 	)
 
 set(CORE_FILES
+	assimp_loader.cpp
+	assimp_loader.h
 	camera.cpp
 	camera.h
 	cuda_defs.h
@@ -58,6 +60,8 @@ set(CORE_FILES
 	scene.h
 	transform.cpp
 	transform.h
+	triangle_mesh.cpp
+	triangle_mesh.h
 	utils.cpp
 	utils.h
 	#main.cpp

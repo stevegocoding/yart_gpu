@@ -14,7 +14,7 @@ inline void _cuda_safe_call_no_sync(cudaError err, const char *file, const int l
 {
 	if (cudaSuccess != err)
 	{
-		yart_log_message("%s(%i) : CUDA Runtime API error : %s.\n", file, line, cudaGetErrorString(err));
+		yart_log_message("%s(%i) : CUDA Runtime API error : %s %d. \n", file, line, cudaGetErrorString(err), (int)err);
 		assert(false); 
 	}
 }

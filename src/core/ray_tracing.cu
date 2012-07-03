@@ -1,6 +1,6 @@
 #include "kernel_data.h"
 #include "ray_tracer.h"
-#include "cuda_utils.h"
+#include "cuda_utils.h" 
 
 __device__ void dfunc_add_pixel_radiance(const c_ray_chunk& ray_chunk, 
 										const c_shading_points_array& shading_pts,
