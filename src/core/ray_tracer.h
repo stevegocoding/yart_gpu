@@ -8,10 +8,27 @@
 
 struct c_ray_chunk
 {
+#ifdef __cplusplus
 	explicit c_ray_chunk(uint32 _max_rays); 
 	
 	void alloc_device_memory(); 
 	void free_device_memory();
+
+	// ---------------------------------------------------------------------
+	/*
+	/// \brief	Compacts this ray chunk using the given source address array.
+	/// 		
+	/// 		This operation assumes that the source addresses were generated before, e.g. using ::
+	/// 		mncudaGenCompactAddresses(). The latter also returns the required new number of rays.
+	/// 		Basically, this was done to allow compacting multiple structures using the same
+	/// 		source addresses. 	
+	*/ 
+	// ---------------------------------------------------------------------
+	void compact_src_addr(uint32 *d_src_addr, uint32 new_count);
+
+
+#endif 
+	
 
 	float4 *d_origins_array; 
 	float4 *d_dirs_array;

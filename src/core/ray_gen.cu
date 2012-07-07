@@ -170,7 +170,7 @@ void ivk_krnl_gen_primary_rays(const c_perspective_camera *camera,
 	c_cuda_memory<float> d_rands(2 * num_rand);
 	
 	rng.seed(rand()); 
-	rng.gen_rand(d_rands.get_write_buf_ptr(), 2*num_rand); 
+	rng.gen_rand(d_rands.get_writable_buf_ptr(), 2*num_rand); 
 
 	float inv_num_spp_x = ((num_samples_x > 1) ? 1.0f / float(num_samples_x) : 1.0f); 
 	float inv_num_spp_y = ((num_samples_y > 1) ? 1.0f / float(num_samples_y) : 1.0f);

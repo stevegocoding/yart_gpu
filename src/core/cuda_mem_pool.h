@@ -145,7 +145,7 @@ public:
 
 	T* get_buf_ptr() const { return d_buffer; }
 
-	T* get_write_buf_ptr() { return d_buffer; }
+	T* get_writable_buf_ptr() { return d_buffer; }
 
 	T read(size_t idx)
 	{

@@ -24,7 +24,7 @@ void kernel_wrapper_test_mt(c_randoms_chunk& out_chunk)
 	c_cuda_memory<float> d_rands(num_rand);
 
 	rng.seed(rand()); 
-	rng.gen_rand(d_rands.get_write_buf_ptr(), num_rand); 
+	rng.gen_rand(d_rands.get_writable_buf_ptr(), num_rand); 
 	
 	kernel_test_mt<<<grid_size, block_size>>>(d_rands.get_buf_ptr(), out_chunk); 
 }

@@ -6,6 +6,8 @@
 #include <assert.h>
 #include "cuda_defs.h"
 
+
+
 // ---------------------------------------------------------------------
 /*
 	Triangle data structure for kernel use.
@@ -73,6 +75,18 @@ struct c_shading_points_array
 	
 	void alloc_mem(uint32 _max_points);
 	void destroy();
+
+	// ---------------------------------------------------------------------
+	/*
+	/// \brief	Compacts this shading point structure using the given source address array.
+	///
+	///			This operation assumes that the source addresses were generated before, e.g. using
+	///			::mncudaGenCompactAddresses(). The latter also returns the required new number of
+	///			shading points. Basically, this was done to allow compacting multiple structures
+	///			using the same source addresses.
+	*/ 
+	// ---------------------------------------------------------------------
+	void compact_src_addr(uint32 *d_src_addr, uint32 new_count);
 	
 #endif
 
@@ -81,18 +95,22 @@ struct c_shading_points_array
 	// Maximum number of shading points that can be stored.
 	uint32 max_pts; 
 	// Index of the corresponding pixel (device array).
-	uint32 *d_pixels_buf; 
+	uint32 *d_pixels_array; 
 	// Index of the intersected triangle or -1, if no intersection (device array).
-	int *d_tri_idices;
+	int *d_tri_idx_array;
 	// Point of intersection coordinates (device array).
-	float4 *d_isect_pts;
+	float4 *d_isect_pts_array;
 	// Geometric normal at intersection point (device array).
-	float4 *d_geo_normals; 
+	float4 *d_geo_normals_array; 
 	// Shading normal at intersection point (device array).
-	float4 *d_shading_normals; 
+	float4 *d_shading_normals_array; 
 	// Barycentric hit coordinates (device array).
-	float2 *d_isect_bary_coords; 
+	float2 *d_isect_bary_array; 
 };
+
+
+//////////////////////////////////////////////////////////////////////////
+
 
 
 #endif // __kernel_data_h__

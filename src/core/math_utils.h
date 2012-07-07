@@ -5,18 +5,16 @@
 
 #include <math.h> 
 #include <algorithm>
+#include <float.h>
 
 using std::swap;
 using std::sqrt;
 
 
-namespace 
-{
-	static const float M_PI = 3.14159265358979323846f; 
-	static const float INV_PI = 0.31830988618379067154f; 
-    static const float INV_TWOPI = 0.15915494309189533577f; 
-	static const float INFINITY = std::numeric_limits<float>::infinity();
-}
+#define M_PI 3.14159265358979323846f
+#define M_INV_PI 0.31830988618379067154f
+#define M_INV_TWOPI 0.15915494309189533577f
+#define M_INFINITY FLT_MAX
 
 inline bool quadratic(float A, float B, float C, float *t0, float *t1)
 {

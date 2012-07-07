@@ -9,6 +9,7 @@
 #include "kernel_data.h"
 #include "obj_makers.h"
 
+struct c_ray_chunk; 
 class c_renderer
 {
 public:
@@ -22,10 +23,12 @@ private:
 	void initialise(uint32 screen_size); 
 	void destroy();
 	bool render_to_buf(PARAM_OUT float4 *d_radiance);
+
+	uint32 trace_rays(c_ray_chunk *ray_chunk, c_shading_points_array *sp_shading, PARAM_OUT uint32 *d_src_addr = NULL);
 	
 	ray_pool_ptr m_ray_pool; 
 	perspective_cam_ptr m_camera;
-	c_shading_points_array m_shading_pts; 
+	c_shading_points_array m_sp_shading;
 	
 };
 
