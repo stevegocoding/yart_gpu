@@ -149,7 +149,9 @@ public:
 
 	T read(size_t idx)
 	{
-		assert(idx >= m_num_elems); 
+		if (idx >= m_num_elems)
+			yart_log_message("c_cuda_memory - Illegal element index.");
+		
 		T res; 
 		
 		cudaError_t err = cudaMemcpy(&res, d_buffer+idx, sizeof(T), cudaMemcpyDeviceToHost); 

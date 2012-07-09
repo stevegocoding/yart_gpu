@@ -31,6 +31,12 @@ set(CORE_FILES
 	cuda_rng.h
 	cuda_utils.cpp
 	cuda_utils.h
+	kdtree_gpu.cpp
+	kdtree_gpu.h
+	kdtree_kernel_data.cpp
+	kdtree_kernel_data.h
+	kdtree_triangle.cpp
+	kdtree_triangle.h
 	kernel_data.cpp
 	kernel_data.h
 	math_utils.cpp
@@ -69,6 +75,10 @@ set(CORE_FILES
 
 set(GPU_FILES
 	cuda_utils.cu
+	intersect_gpu.h
+	kdtree.cu
+	kdtree_chunklist.cu
+	kdtree_tri.cu
 	ray_gen.cu
 	ray_tracing.cu
 	vec_add.cu

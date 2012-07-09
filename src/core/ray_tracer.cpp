@@ -67,11 +67,12 @@ void c_ray_chunk::compact_src_addr(uint32 *d_src_addr, uint32 new_count)
 	}
 
 	// Move source data to destination data inplace.
+	/*
 	cuda_compact_in_place(d_origins_array, d_src_addr, num_rays, new_count);
 	cuda_compact_in_place(d_dirs_array, d_src_addr, num_rays, new_count);
 	cuda_compact_in_place(d_pixels_array, d_src_addr, num_rays, new_count);
 	cuda_compact_in_place(d_weights_array, d_src_addr, num_rays, new_count);
-
+	*/ 
 	num_rays = new_count;
 }
 

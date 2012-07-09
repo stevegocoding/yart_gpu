@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <map>
 #include "prerequisites.h"
-#include "cudpp/cudpp.h"
+#include "cudpp/cudpp.h" 
  
 class c_cuda_primitives
 {

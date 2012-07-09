@@ -22,10 +22,33 @@ extern "C++"
 template <typename T>
 void kernel_wrapper_set_from_address(T *d_array, uint32 *d_src_addr, T *d_vals, uint32 count_target);
 
+// ---------------------------------------------------------------------
+/*
+	Constant OP
+*/ 
+// ---------------------------------------------------------------------
+extern "C++"
+template <typename T>
+void device_constant_add(T *d_array, uint32 count, T constant); 
+extern "C++"
+template <typename T>
+void device_constant_sub(T *d_array, uint32 count, T constant); 
+extern "C++"
+template <typename T>
+void device_constant_mul(T *d_array, uint32 count, T constant); 
+
+// ---------------------------------------------------------------------
+/*
+	Compact
+*/ 
+// ---------------------------------------------------------------------
+extern "C++"
+template <typename T> 
+void device_compact(T *d_in, unsigned *d_stencil, size_t count, T *d_out_campacted, uint32 *d_out_new_count);
 
 extern "C++"
 template <e_cuda_op, typename T>
-void kernel_wrapper_constant_op(T *d_array, uint32 count, T constant);
+void kernel_wrapper_reduce(T& result, T *d_data, uint32 count, T identity);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -35,17 +58,38 @@ cudaError_t cuda_check_error(bool bforce /* = true */)
 		return cudaDeviceSynchronize();
 	else 
 		return cudaSuccess; 
-}
+} 
 
 //////////////////////////////////////////////////////////////////////////
 
-template <e_cuda_op op, typename T>
-void cuda_constant_op(T *d_array, uint32 count, T constant)
+
+template <typename T>
+void cuda_constant_add(T* d_array, uint32 count, T constant)
 {
 	assert(d_array && count > 0);
-	kernel_wrapper_constant_op<op, T>(d_array, count, constant); 
+	device_constant_add<T>(d_array, count, constant);
 }
 
+template <typename T>
+void cuda_constant_sub(T* d_array, uint32 count, T constant)
+{
+	assert(d_array && count > 0);
+	device_constant_sub<T>(d_array, count, constant);
+}
+
+template <typename T>
+void cuda_constant_mul(T* d_array, uint32 count, T constant)
+{
+	assert(d_array && count > 0);
+	device_constant_mul<T>(d_array, count, constant);
+}
+
+template <typename T>
+void cuda_compact(T *d_in, unsigned *d_stencil, size_t count, T *d_out_compacted, uint32 *d_out_new_count)
+{
+	assert(d_in && d_stencil && count > 0 && d_out_compacted && d_out_new_count);
+	device_compact<T>(d_in, d_stencil, count, d_out_compacted, d_out_new_count);
+}
 
 template <typename T> 
 void cuda_set_from_address(T *d_array, uint32 *d_src_addr, T *d_vals, uint32 count_target)
@@ -67,15 +111,22 @@ void cuda_compact_in_place(T *d_data, uint32 *d_src_addr, uint32 old_count, uint
 	cuda_set_from_address(d_data, d_src_addr, (T*)d_temp_buf.get_buf_ptr(), new_count); 
 }
 
+template <typename T> 
+void cuda_reduce(T& result, T *d_data, uint32 count, e_cuda_op op, T identity)
+{
+	// if (op == e_cuda_op)
+		
+	
+}
+
 uint32 cuda_gen_compact_addresses(uint32 *d_is_valid, uint32 old_count, uint32 *d_out_src_addr)
 {
-	c_cuda_primitives& cp = c_cuda_primitives::get_instance();
 	c_cuda_memory<uint32> d_new_count(1);
 	c_cuda_memory<uint32> d_identity(old_count);
 
 	// Compact indices array
 	cuda_init_identity(d_identity.get_writable_buf_ptr(), old_count);
-	cp.compact(d_identity.get_buf_ptr(), d_is_valid, old_count, d_out_src_addr, d_new_count.get_writable_buf_ptr());
+	device_compact(d_identity.get_buf_ptr(), d_is_valid, old_count, d_out_src_addr, d_new_count.get_writable_buf_ptr());
 
 	uint32 new_count = d_new_count.read(0);
 	
@@ -89,7 +140,6 @@ void cuda_init_identity(uint32 *d_buffer, uint32 count)
 	kernel_wrapper_init_identity(d_buffer, count); 
 }
 
-
 //////////////////////////////////////////////////////////////////////////
 
 // ---------------------------------------------------------------------
@@ -99,10 +149,21 @@ void cuda_init_identity(uint32 *d_buffer, uint32 count)
 */ 
 // ---------------------------------------------------------------------
 
-template void cuda_constant_op<cuda_op_add, float>(float* d_array, uint32 count, float constant);
-template void cuda_constant_op<cuda_op_sub, float>(float* d_array, uint32 count, float constant);
-template void cuda_constant_op<cuda_op_mul, float>(float* d_array, uint32 count, float constant);
-template void cuda_constant_op<cuda_op_add, uint32>(uint32* d_array, uint32 count, uint32 constant);
-template void cuda_constant_op<cuda_op_sub, uint32>(uint32* d_array, uint32 count, uint32 constant);
-template void cuda_constant_op<cuda_op_mul, uint32>(uint32* d_array, uint32 count, uint32 constant);
+template void cuda_constant_add<float>(float *d_array, uint32 count, float constant);
+template void cuda_constant_sub<float>(float *d_array, uint32 count, float constant);
+template void cuda_constant_mul<float>(float *d_array, uint32 count, float constant);
+template void cuda_constant_add<uint32>(uint32 *d_array, uint32 count, uint32 constant);
+template void cuda_constant_sub<uint32>(uint32 *d_array, uint32 count, uint32 constant);
+template void cuda_constant_mul<uint32>(uint32 *d_array, uint32 count, uint32 constant); 
 
+template void cuda_set_from_address<uint32>(uint32 *d_array, uint32 *d_src_addr, uint32 *d_vals, uint32 count_target);
+template void cuda_set_from_address<float>(float *d_array, uint32 *d_src_addr, float *d_vals, uint32 count_target);
+template void cuda_set_from_address<float2>(float2 *d_array, uint32 *d_src_addr, float2 *d_vals, uint32 count_target);
+template void cuda_set_from_address<float4>(float4 *d_array, uint32 *d_src_addr, float4 *d_vals, uint32 count_target);
+
+template void cuda_compact_in_place<uint32>(uint32 *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
+template void cuda_compact_in_place<float>(float *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
+template void cuda_compact_in_place<float2>(float2 *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
+template void cuda_compact_in_place<float4>(float4 *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
+
+template void cuda_compact<uint32>(uint32 *d_in, unsigned *d_stencil, size_t count, uint32 *d_out_compacted, uint32 *d_out_new_count);

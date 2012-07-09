@@ -184,12 +184,14 @@ void c_shading_points_array::compact_src_addr(uint32 *d_src_addr, uint32 new_cou
 		return; 
 
 	// Move source data to destination data in-place.
+	/*
 	cuda_compact_in_place(d_pixels_array, d_src_addr, num_pts, new_count);
 	cuda_compact_in_place(d_tri_idx_array, d_src_addr, num_pts, new_count);
 	cuda_compact_in_place(d_geo_normals_array, d_src_addr, num_pts, new_count);
 	cuda_compact_in_place(d_shading_normals_array, d_src_addr, num_pts, new_count);
 	cuda_compact_in_place(d_isect_pts_array, d_src_addr, num_pts, new_count);
 	cuda_compact_in_place(d_isect_bary_array, d_src_addr, num_pts, new_count);
+	*/ 
 	
 	num_pts = new_count;
 }

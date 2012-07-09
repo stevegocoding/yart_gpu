@@ -7,6 +7,8 @@
 #include "utils.h"
 #include "cuda_defs.h" 
 
+#include "thrust/device_allocator.h"
+
 /// Performs a CUDA synchronization and checks for returned errors (optional in release mode).
 #ifdef _DEBUG
 #define CUDA_CHECKERROR cuda_safe_call_no_sync(cuda_check_error(true))
@@ -104,6 +106,7 @@ uint32 cuda_gen_compact_addresses(uint32 *d_is_valid, uint32  old_count, uint32 
 template <typename T>
 void cuda_compact_in_place(T *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
 
+
 // ---------------------------------------------------------------------
 /*
 /// \brief	Moves data from device memory \a d_vals to device memory \a d_array using \em source
@@ -118,8 +121,9 @@ void cuda_compact_in_place(T *d_data, uint32 *d_src_addr, uint32 old_count, uint
 */ 
 // ---------------------------------------------------------------------
 
+
 template <typename T> 
-void cuda_set_from_address(T *d_array, uint32 *d_src_addr, T *d_vals, uint32 count_target);
+void cuda_set_from_address(T *d_array, uint32 *d_src_addr, T *d_vals, uint32 count_target); 
 
 // ---------------------------------------------------------------------
 /*
@@ -149,8 +153,14 @@ void kernel_wrapper_scale_vector_array(V *d_vec, uint32 count, S scalar);
 ///			Each spawned thread works on one array component. 
 */ 
 // ---------------------------------------------------------------------
-template <e_cuda_op op, typename T>
-void cuda_constant_op(T* d_array, uint32 count, T constant);
+
+template <typename T>
+void cuda_constant_add(T* d_array, uint32 count, T constant);
+template <typename T>
+void cuda_constant_sub(T* d_array, uint32 count, T constant);
+template <typename T>
+void cuda_constant_mul(T* d_array, uint32 count, T constant);
+
 
 // ---------------------------------------------------------------------
 /*

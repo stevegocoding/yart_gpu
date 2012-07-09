@@ -135,6 +135,7 @@ bool c_kdtree_gpu::build_tree()
 
 void c_kdtree_gpu::large_node_stage()
 {
+	/*
 	// Iterate until the active list is empty, that is until there are
 	// no more large nodes to work on.
 	while (!m_active_node_list->is_empty())
@@ -160,6 +161,7 @@ void c_kdtree_gpu::large_node_stage()
 		m_active_node_list = m_next_node_list; 
 		m_next_node_list = temp;
 	}
+	*/
 }
 
 void c_kdtree_gpu::process_large_nodes(uint32 *d_final_list_idx_active)

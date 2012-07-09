@@ -2,6 +2,12 @@ PROJECT(yart_gpu)
 
 cmake_minimum_required(VERSION 2.8)
 
+include_directories(${CMAKE_SOURCE_DIR}/src/core/)
+include_directories(${PROJECT_SOURCE_DIR}/deps/include/)
+
+link_directories(${PROJECT_SOURCE_DIR}/deps/lib/debug)
+link_directories(${PROJECT_SOURCE_DIR}/deps/lib/release)
+
 SET(BOOST_ROOT_DIR "" CACHE PATH "")
 SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${BOOST_ROOT_DIR})
 SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${BOOST_ROOT_DIR}/lib)
@@ -35,12 +41,8 @@ endif()
 set(DEP_DLL_DEBUG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/bin/debug/)
 set(DEP_DLL_REL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/bin/release/)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/core/)
-include_directories(${PROJECT_SOURCE_DIR}/deps/include/)
 
-link_directories(${PROJECT_SOURCE_DIR}/deps/lib/debug)
-link_directories(${PROJECT_SOURCE_DIR}/deps/lib/release)
 
 #Adding src directory to the project
 add_subdirectory(data)
-ADD_SUBDIRECTORY(src)
+add_subdirectory(src)

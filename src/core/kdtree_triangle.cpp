@@ -31,4 +31,4 @@ void c_kdtree_triangle::add_root_node(c_kd_node_list *node_list)
 	// the d_elemPoint1/2 members of pList.
 	
 	kernel_kd_generate_tri_aabbs(*node_list, *m_tri_data); 
-}:
+} 
