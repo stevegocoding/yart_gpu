@@ -85,6 +85,10 @@ int main(int argc, char **argv)
 	// Test scan
 
 	// Test reduce 
+	ofs << "Test reduce add" << std::endl; 
+	uint32 sum;
+	cuda_reduce_add<uint32>(sum, d_array, num_elems, (uint32)0);
+	ofs << sum << std::endl;
  
 	// Test segmented reduce 
 	

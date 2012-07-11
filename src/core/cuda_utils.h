@@ -76,6 +76,24 @@ cudaError_t cuda_check_error(bool bForce = true);
 // ---------------------------------------------------------------------
 #define CUDA_ALIGN(count) CUDA_ALIGN_EX(count, 16)
 
+// ---------------------------------------------------------------------
+/*
+/// \brief	Avoids the maximum CUDA grid size by using two grid dimensions for a one dimensional
+/// 		grid. I added this due to problems with exceeding 1D grid sizes. 
+///
+/// \todo	Evaluate impact of spawning many more threads, e.g. when we got only maxBlocks+1
+///			threads. In this case, the second slice of blocks would also get maxBlocks blocks. 
+*/ 
+// ---------------------------------------------------------------------
+#define CUDA_MAKEGRID2D(numBlocks, maxBlocks) dim3(min((numBlocks), (maxBlocks)), 1 + (numBlocks) / (maxBlocks), 1)
+
+// ---------------------------------------------------------------------
+/*
+/// \brief	Calculates the one dimensional block index for the given 2D grid that was created by
+/// 		MNCUDA_MAKEGRID2D(). 
+*/ 
+// ---------------------------------------------------------------------
+#define CUDA_GRID2DINDEX  (blockIdx.x + (blockIdx.y*gridDim.x)) 
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -109,6 +127,33 @@ void cuda_compact_in_place(T *d_data, uint32 *d_src_addr, uint32 old_count, uint
 
 // ---------------------------------------------------------------------
 /*
+/// \brief	Performs reduction on \a d_data.
+*/ 
+// ---------------------------------------------------------------------
+template <typename T>
+void cuda_reduce_add(T& result, T *d_data, size_t count, T identity);
+
+// ---------------------------------------------------------------------
+/*
+/// \brief	Performs segmented reduction on \a d_data.
+/// 		
+/// 		Segments are defined by \a d_owner, where \a d_owner[i] contains the segment of \a
+/// 		d_data[i]. The result is put into \a d_result. This array has to be preallocated and
+/// 		should have space for all segment results. 
+*/ 
+// ---------------------------------------------------------------------
+template <typename T> 
+void cuda_segmented_reduce_add(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
+template <typename T> 
+void cuda_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
+template <typename T> 
+void cuda_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
+
+template <typename T> 
+void cuda_scan(T *d_data, size_t num_elems, bool is_inclusive, T *d_out);
+
+// ---------------------------------------------------------------------
+/*
 /// \brief	Moves data from device memory \a d_vals to device memory \a d_array using \em source
 /// 		addresses specified in \a d_srcAddr.
 /// 		
@@ -135,8 +180,6 @@ void cuda_set_from_address(T *d_array, uint32 *d_src_addr, T *d_vals, uint32 cou
 // ---------------------------------------------------------------------
 void cuda_init_identity(uint32 *d_buffer, uint32 count);
 
-
-
 //////////////////////////////////////////////////////////////////////////
 
 extern "C++"
@@ -160,23 +203,3 @@ template <typename T>
 void cuda_constant_sub(T* d_array, uint32 count, T constant);
 template <typename T>
 void cuda_constant_mul(T* d_array, uint32 count, T constant);
-
-
-// ---------------------------------------------------------------------
-/*
-/// \brief	Performs reduction on \a d_data.
-///
-///			\a d_data remains unchanged. The reduction depends on the passed operator. The
-///			reduction algorithm is implemented with the help of the CUDA SDK sample.
-///
-/// \tparam T		Element type of input and output arrays.
-/// \param [out]	result	Reduction result. Single element of type \a T. 
-/// \param [in]		d_data	Data to reduce, remains unchanged. 
-/// \param	count			Number of elements in \a d_data. 
-/// \param	op				The reduction operator. One of ::MNCuda_ADD, ::MNCuda_MIN,
-/// 						::MNCuda_MAX. 
-/// \param	identity		Identity value associated with \a op. 
-*/ 
-// ---------------------------------------------------------------------
-template <typename T> 
-void cuda_reduce(T& result, T *d_data, uint32 count, e_cuda_op op, T identity);

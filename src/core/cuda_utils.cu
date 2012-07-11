@@ -1,77 +1,18 @@
 #include "cuda_utils.h"
 #include "cuda_defs.h"
+#include "cuda_mem_pool.h"
+#include "cuda_utils_device.h"
+#include "functor_device.h"
 
 #include "thrust/device_vector.h"
 #include "thrust/device_ptr.h"
 #include "thrust/transform.h"
 #include "thrust/copy.h"
+#include "thrust/reduce.h"
 #include "thrust/gather.h"
 #include "thrust/count.h"
 
-
-// ---------------------------------------------------------------------
-/*
-	Functors 
-*/ 
-// ---------------------------------------------------------------------
-template <typename T>
-struct constant_add
-{
-	constant_add(T _val)
-		: val(_val)
-	{}
-
-	__host__ __device__ 
-	T operator() (T x) 
-	{
-		return x + val; 
-	}
-
-	T val;
-};
-
-template <typename T>
-struct constant_sub
-{
-	constant_sub(T _val)
-		: val(_val)
-	{}
-
-	__host__ __device__ 
-	T operator() (T x) 
-	{
-		return x - val; 
-	}
-
-	T val;
-};
-
-template <typename T>
-struct constant_mul
-{
-	constant_mul(T _val)
-		: val(_val)
-	{}
-
-	__host__ __device__ 
-	T operator() (T x) 
-	{
-		return x * val; 
-	}
-
-	T val;
-};
-
-struct is_valid
-{
-	__host__ __device__
-		bool operator() (uint32 x)
-	{
-		return (x == 1);
-	}
-};
-
-
+ 
 // ---------------------------------------------------------------------
 /*
 	Kernels
@@ -86,7 +27,6 @@ __global__ void kernel_scale_vector_array(V *d_vec, uint32 count, S scalar)
 	if (tid < count)
 		d_vec[tid] *= scalar; 
 }
-
 
 // ---------------------------------------------------------------------
 /*
@@ -122,8 +62,7 @@ __global__ void kernel_init_identity(uint32 *d_buffer, uint32 count)
 	if (idx < count)
 		d_buffer[idx] = idx;
 }
-
-
+ 
 // ---------------------------------------------------------------------
 /*
 	Kernel Wrappers
@@ -150,24 +89,7 @@ void kernel_wrapper_set_from_address(T *d_array, uint32 *d_src_addr, T *d_vals, 
 	dim3 grid_size = dim3(CUDA_DIVUP(count_target, block_size.x), 1, 1);
 	
 	kernel_set_from_address<<<grid_size, block_size>>>(d_array, d_src_addr, d_vals, count_target);
-}
-
-extern "C++"
-template <typename T> 
-void kernel_wrapper_reduce(T& result, T *d_data, uint32 count, T identity)
-{
-	/*
-	uint32 num_blocks = CUDA_DIVUP(count, 256);
-	
-	cudaError_t err;
-	T *d_block_res; 
-	
-	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
-	err = mem_pool.request((void**)&d_block_res, num_blocks*sizeof(T), "temp", 64*sizeof(T)/4);
-	if (err != cudaSuccess)
-		return err; 
-	*/
-}
+} 
 
 extern "C"
 void kernel_wrapper_init_identity(uint32 *d_buffer, uint32 count)
@@ -214,6 +136,42 @@ void device_compact(T *d_in, unsigned *d_stencil, size_t num_elems, T *d_out_cam
 	cuda_safe_call_no_sync(cudaMemcpy(d_out_new_count, &new_count, sizeof(uint32), cudaMemcpyHostToDevice)); 
 }
 
+extern "C++"
+template <typename T>
+void device_reduce_add(T& result, T *d_in, size_t count, T init)
+{
+	thrust::device_ptr<uint32> d_in_ptr = thrust::device_pointer_cast(d_in); 
+	result = thrust::reduce(d_in_ptr, d_in_ptr+count, init, thrust::plus<T>());
+}
+
+extern "C++"
+template <typename T>
+void device_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	c_cuda_memory<uint32> d_keys_output(count); 
+	
+	thrust::device_ptr<uint32> d_keys_ptr = thrust::device_pointer_cast<uint32>(d_owner); 
+	thrust::device_ptr<T> d_data_ptr = thrust::device_pointer_cast<T>(d_data);
+	thrust::device_ptr<T> d_result_ptr = thrust::device_pointer_cast<T>(d_result);
+	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.get_writable_buf_ptr());  
+	
+	thrust::reduce_by_key(d_keys_ptr, d_keys_ptr+count, d_data_ptr, d_keys_output_ptr, d_result_ptr, thrust::equal_to<uint32>(), op_minimum<T>());
+}
+
+extern "C++"
+template <typename T>
+void device_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	c_cuda_memory<uint32> d_keys_output(count); 
+
+	thrust::device_ptr<uint32> d_keys_ptr = thrust::device_pointer_cast<uint32>(d_owner); 
+	thrust::device_ptr<T> d_data_ptr = thrust::device_pointer_cast<T>(d_data);
+	thrust::device_ptr<T> d_result_ptr = thrust::device_pointer_cast<T>(d_result);
+	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.get_writable_buf_ptr());  
+
+	thrust::reduce_by_key(d_keys_ptr, d_keys_ptr+count, d_data_ptr, d_keys_output_ptr, d_result_ptr, thrust::equal_to<uint32>(), op_maximum<T>());
+}
+
 template void device_constant_add<float>(float *d_array, uint32 count, float constant); 
 template void device_constant_sub<float>(float *d_array, uint32 count, float constant); 
 template void device_constant_mul<float>(float *d_array, uint32 count, float constant); 
@@ -223,6 +181,17 @@ template void device_constant_mul<uint32>(uint32 *d_array, uint32 count, uint32 
 
 template void device_compact<uint32>(uint32 *d_in, unsigned *d_stencil, size_t num_elems, uint32 *d_out_campacted, uint32 *d_out_new_count);
 
+template void device_reduce_add<uint32>(uint32& result, uint32 *d_in, size_t count, uint32 init);
+
+template void device_segmented_reduce_min<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
+template void device_segmented_reduce_min<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
+template void device_segmented_reduce_min<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
+
+/*
+template void device_segmented_reduce_max<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
+template void device_segmented_reduce_max<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
+template void device_segmented_reduce_max<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
+*/
 
 template void kernel_wrapper_set_from_address<uint32>(uint32 *d_array, uint32 *d_src_addr, uint32 *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<float>(float *d_array, uint32 *d_src_addr, float *d_vals, uint32 count_target);

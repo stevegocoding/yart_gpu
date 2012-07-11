@@ -46,9 +46,22 @@ extern "C++"
 template <typename T> 
 void device_compact(T *d_in, unsigned *d_stencil, size_t count, T *d_out_campacted, uint32 *d_out_new_count);
 
+// ---------------------------------------------------------------------
+/*
+	Reduction
+*/ 
+// ---------------------------------------------------------------------
 extern "C++"
-template <e_cuda_op, typename T>
-void kernel_wrapper_reduce(T& result, T *d_data, uint32 count, T identity);
+template <typename T>
+void device_reduce_add(T& result, T *d_in, size_t count, T init);
+
+extern "C++"
+template <typename T>
+void device_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
+
+extern "C++"
+template <typename T>
+void device_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -112,11 +125,32 @@ void cuda_compact_in_place(T *d_data, uint32 *d_src_addr, uint32 old_count, uint
 }
 
 template <typename T> 
-void cuda_reduce(T& result, T *d_data, uint32 count, e_cuda_op op, T identity)
+void cuda_reduce_add(T& result, T *d_data, size_t count, T identity)
 {
 	// if (op == e_cuda_op)
-		
+	assert(d_data && count > 0);	
+	device_reduce_add(result, d_data, count, identity); 	
+}
+
+template <typename T> 
+void cuda_segmented_reduce_add(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	assert(d_data && d_owner && d_result && count > 0 && num_segments > 0);
 	
+}
+
+template <typename T> 
+void cuda_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	assert(d_data && d_owner && d_result && count > 0 && num_segments > 0);
+	device_segmented_reduce_min<T>(d_data, d_owner, count, identity, d_result, num_segments);
+}
+
+template <typename T>
+void cuda_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	assert(d_data && d_owner && d_result && count > 0 && num_segments > 0);
+	device_segmented_reduce_max<T>(d_data, d_owner, count, identity, d_result, num_segments);
 }
 
 uint32 cuda_gen_compact_addresses(uint32 *d_is_valid, uint32 old_count, uint32 *d_out_src_addr)
@@ -132,7 +166,6 @@ uint32 cuda_gen_compact_addresses(uint32 *d_is_valid, uint32 old_count, uint32 *
 	
 	return new_count;
 }
-
 
 void cuda_init_identity(uint32 *d_buffer, uint32 count)
 {
@@ -167,3 +200,17 @@ template void cuda_compact_in_place<float2>(float2 *d_data, uint32 *d_src_addr, 
 template void cuda_compact_in_place<float4>(float4 *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
 
 template void cuda_compact<uint32>(uint32 *d_in, unsigned *d_stencil, size_t count, uint32 *d_out_compacted, uint32 *d_out_new_count);
+
+template void cuda_reduce_add<uint32>(uint32& result, uint32 *d_data, size_t count, uint32 init);
+
+template void cuda_segmented_reduce_min<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
+template void cuda_segmented_reduce_min<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
+template void cuda_segmented_reduce_min<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
+
+template void cuda_segmented_reduce_max<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
+template void cuda_segmented_reduce_max<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
+template void cuda_segmented_reduce_max<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
+
+template void cuda_segmented_reduce_add<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
+template void cuda_segmented_reduce_add<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
+template void cuda_segmented_reduce_add<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);

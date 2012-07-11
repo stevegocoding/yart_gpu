@@ -2,6 +2,7 @@
 #include "cuda_mem_pool.h"
 #include "cuda_utils.h"
 #include "cuda_primitives.h"
+#include "math_utils.h"
 
 extern "C"
 void kernel_set_kd_params(uint32 samll_node_max);
@@ -18,6 +19,16 @@ void kernel_wrapper_kd_gen_chunks(uint32 *d_num_elems_array,
 								uint32 num_nodes, 
 								uint32 *d_offsets, 
 								c_kd_chunk_list& chunk_list);
+
+extern "C"
+void kernel_wrappper_empty_space_cutting(c_kd_node_list& active_list, c_kd_final_node_list& final_list, float empty_space_ratio, uint32 *d_io_final_list_idx);
+
+extern "C"
+void kernel_wrapper_split_large_nodes(const c_kd_node_list& active_list, c_kd_node_list& next_list); 
+
+extern "C++"
+template <uint32 num_elem_pts>
+void kernel_wrapper_gen_chunk_aabb(const c_kd_node_list& active_list, c_kd_chunk_list& chunks_list);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -169,6 +180,55 @@ void c_kdtree_gpu::process_large_nodes(uint32 *d_final_list_idx_active)
 	assert(m_active_node_list->is_empty());
 	
 	// Group elements into chunks.
+	create_chunk_list(m_active_node_list);
+	
+	// Compute per node bounding boxes.
+	compute_nodes_aabbs(); 
+
+	// Split large nodes.
+	
+}
+
+void c_kdtree_gpu::compute_nodes_aabbs()
+{
+	// First compute the bounding boxes of all chunks in parallel.
+	if (m_active_node_list->num_elem_points == 1)
+		kernel_wrapper_gen_chunk_aabb<1>(*m_active_node_list, *m_chunk_list);
+	else 
+		kernel_wrapper_gen_chunk_aabb<2>(*m_active_node_list, *m_chunk_list);
+	
+	
+	// Now compute the tight bounding boxes of all nodes in parallel using
+	// segmented reduction. 
+	cuda_segmented_reduce_min(m_chunk_list->d_aabb_min, m_chunk_list->d_node_idx, m_chunk_list->num_chunks, make_float4(M_INFINITY), 
+		m_active_node_list->d_aabb_tight_min, m_active_node_list->num_nodes);
+	
+	cuda_segmented_reduce_max(m_chunk_list->d_aabb_max, m_chunk_list->d_node_idx, m_chunk_list->num_chunks, make_float4(-M_INFINITY),
+		m_active_node_list->d_aabb_tight_max, m_active_node_list->num_nodes);
+}
+
+void c_kdtree_gpu::split_large_nodes(uint32 *d_final_list_index_active)
+{
+	assert(m_final_list->num_nodes >= m_active_node_list->num_nodes);
+	
+	// Cut of empty space. This updates the final list to include the cut-off empty space nodes
+	// as well as the updated nodes, that are in the active list, too. It keeps track where the
+	// active list nodes reside in the final list by updating the parent index array appropriately.
+	kernel_wrappper_empty_space_cutting(*m_active_node_list, *m_final_list, m_empty_scene_ratio, d_final_list_index_active);
+	
+	// Now we can perform real spatial median splitting to create exactly two child nodes for
+	// each active list node (into the next list).
+	
+	// Check if there is enough space in the next list.
+	if(m_next_node_list->max_nodes < 2*m_active_node_list->num_nodes)
+		m_next_node_list->resize_node_data(2*m_active_node_list->num_nodes);
+
+	// Perform splitting. Also update the final node child relationship.
+	kernel_wrapper_split_large_nodes(*m_active_node_list, *m_next_node_list);
+
+	// Set new number of nodes.
+	m_next_node_list->num_nodes = 2*m_active_node_list->num_nodes;
+
 }
 
 void c_kdtree_gpu::create_chunk_list(c_kd_node_list *node_list)
@@ -203,6 +263,7 @@ void c_kdtree_gpu::create_chunk_list(c_kd_node_list *node_list)
 	kernel_wrapper_kd_gen_chunks(node_list->d_num_elems_array, node_list->d_first_elem_idx, node_list->num_nodes, d_offsets.get_buf_ptr(), *m_chunk_list);
 	
 	// Set number of chunks.
-	
+	cuda_reduce_add<uint32>(m_chunk_list->num_chunks, d_counts.get_buf_ptr(), node_list->num_nodes, (uint32)0); 
 	
 }
+

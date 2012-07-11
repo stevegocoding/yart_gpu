@@ -6,6 +6,7 @@
 #include <list>
 #include <cuda_runtime.h>
 #include "prerequisites.h"
+#include "cuda_utils.h"
 
 /// Keeps track of assigned device memory segments. 
 class c_assigned_segment 
@@ -141,7 +142,11 @@ public:
 		pool.request((void**)&d_buffer, num_elems*sizeof(T), cat, alignment);
 	}
 	
-	~c_cuda_memory() {}
+	~c_cuda_memory() 
+	{
+		c_cuda_mem_pool& pool = c_cuda_mem_pool::get_instance(); 
+		cuda_safe_call_no_sync(pool.release(d_buffer));
+	}
 
 	T* get_buf_ptr() const { return d_buffer; }
 

@@ -140,6 +140,13 @@ private:
 	// Processes large nodes in the current active list.
 	void process_large_nodes(uint32 *d_final_list_idx_active);
 
+	// Computes per node bounding boxes.
+	void compute_nodes_aabbs(); 
+
+	// Splits large nodes using empty space cutting and spatial median splitting
+	// along the longest axis.
+	void split_large_nodes(uint32 *d_final_list_index_active);
+
 	// Performs preorder traversal of the final tree to generate a final node list. 
 	void preorder_traversal();
 

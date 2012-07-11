@@ -277,20 +277,20 @@ public:
 	/// Number of elements for each node (device memory).
 	uint32* d_num_elems;
 	/// Node bounds minimum for radius/center calculation (device memory). Might not be tight.
-	float4 *d_aabbMin;
+	float4 *d_aabb_min;
 	/// Node bounds minimum for radius/center calculation (device memory). Might not be tight.
-	float4 *d_aabbMax;
+	float4 *d_aabb_max;
 	/// Node levels (device memory). Starting with 0 for root.
-	uint32* d_nodeLevel;
+	uint32* d_node_level;
 
 	/// Split axis for each node (device memory).  Can be 0, 1 or 2. However, this is only valid for inner nodes.
-	uint32* d_splitAxis;
+	uint32* d_split_axis;
 	/// Split position for each node (device memory). However, this is only valid for inner nodes.
-	float* d_splitPos;
+	float* d_split_pos;
 	/// Left (below) child node index for each node (device memory). Only valid for inner nodes.
-	uint32* d_childLeft;
+	uint32* d_child_left;
 	/// Right (above) child node index for each node (device memory). Only valid for inner nodes.
-	uint32* d_childRight;
+	uint32* d_child_right;
 
 	/// \brief	Element node association (ENA) list.
 	///			
@@ -298,7 +298,7 @@ public:
 	///			contiguously for each node. The first element index address for node i is given by
 	///			#d_idxFirstElem[i]. There can be holes between adjacent node element indices
 	///			as the first element index address is aligned to improve performance.
-	uint32* d_elemNodeAssoc; 
+	uint32* d_elem_node_assoc; 
 
 	
 };
