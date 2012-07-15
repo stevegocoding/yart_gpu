@@ -4,15 +4,6 @@
 #include "math_utils.h"
 #include "cuda_utils.h"
 
-template <typename T>
-class op_add
-{
-	__device__ 
-	T operator() (T& a, T& b)
-	{
-		return a + b;
-	}
-}; 
  
 // ---------------------------------------------------------------------
 /*
@@ -23,7 +14,7 @@ class op_add
 // ---------------------------------------------------------------------
 
 template <typename T, uint32 block_size, class op_functor>
-__device__ T device_reduce_fast(T *s_data, op_functor op) 
+__device__ T device_reduce_fast(T *s_data, op_functor op = op_functor()) 
 { 
 	uint32 tid = threadIdx.x;
 

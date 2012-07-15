@@ -6,6 +6,9 @@
 extern "C"
 void kernel_kd_generate_tri_aabbs(const c_kd_node_list& root_list, const c_triangle_data &tri_data);
 
+extern "C"
+void kernel_wrapper_do_split_clipping(const c_kd_node_list& active_list,a 
+
 void c_kdtree_triangle::add_root_node(c_kd_node_list *node_list)
 {
 	cuda_safe_call_no_sync(cudaMemset(node_list->d_first_elem_idx, 0, sizeof(uint32)));
@@ -32,3 +35,11 @@ void c_kdtree_triangle::add_root_node(c_kd_node_list *node_list)
 	
 	kernel_kd_generate_tri_aabbs(*node_list, *m_tri_data); 
 } 
+
+void c_kdtree_triangle::perform_split_clipping(c_kd_node_list *parent_list, c_kd_node_list *child_list)
+{
+	create_chunk_list(child_list);
+
+	kernel_wrapper_p
+	
+}

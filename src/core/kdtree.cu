@@ -3,8 +3,9 @@
 #include "cuda_utils_device.h"
 #include "cuda_mem_pool.h"
 #include "functor_device.h"
+#include "cuda_rng.h"
 
-cudaDeviceProp device_prop;
+cudaDeviceProp device_props;
 
 __constant__ float k_empty_space_ratio; 
 
@@ -297,6 +298,107 @@ __global__ void kernel_can_cutoff_empty_space(c_kd_node_list active_list, uint32
 	}
 }
 
+
+// ---------------------------------------------------------------------
+/*
+/// \brief	Marks left and right elements in next list ENA.
+/// 		
+/// 		It is assumed that active list's elements were duplicated in the following way: The
+/// 		ENA was copied to the first \c lstActive.nextFreePos elements and to the second \c
+/// 		lstActive.nextFreePos elements.  
+
+/// \tparam	numElementPoints	The number of points per element determines the type of the
+/// 							elements. For one point, it's a simple point. For two points, we
+/// 							assume a bounding box. 
+///
+/// \param	lstActive			The active list. 
+/// \param	lstChunks			The chunk list constructed for the active list. 
+/// \param [in]		d_randoms	Uniform random numbers used to avoid endless split loops if
+/// 							several elements lie within a splitting plane. There should be a
+/// 							random number for each thread, i.e. for each element processed. 
+/// \param [out]	d_outValid	Binary 0/1 array ordered as the ENA of the next list, i.e. the
+/// 							left child valid flags are in the first half and the right child
+/// 							valid flags are in the right half respectively.  
+*/ 
+// ---------------------------------------------------------------------
+template <uint32 num_elem_pts>
+__global__ void kernel_mark_left_right_elems(c_kd_node_list active_list, 
+											c_kd_chunk_list chunks_list, 
+											float *d_randoms, 
+											uint32 *d_out_valid)
+{
+	uint32 chunk = CUDA_GRID2DINDEX;
+	uint32 idx = threadIdx.x;
+	
+	__shared__ uint32 s_num_elems_chunk;
+	__shared__ uint32 s_idx_node; 
+	__shared__ uint32 s_idx_first_elem;
+	__shared__ uint32 s_split_axis;
+	__shared__ float s_split_pos;
+
+	if (threadIdx.x == 0)
+	{
+		s_num_elems_chunk = chunks_list.d_num_elems[chunk];
+		s_idx_node = chunks_list.d_node_idx[chunk];
+		s_idx_first_elem = chunks_list.d_first_elem_idx[chunk];
+		s_split_axis = active_list.d_split_axis[s_idx_node];
+		s_split_pos = active_list.d_split_pos[s_idx_node];
+	}
+
+	__syncthreads();
+
+	if (idx < s_num_elems_chunk)
+	{
+		uint32 idx_tna = s_idx_first_elem + idx; 
+		uint32 tid = blockDim.x * CUDA_GRID2DINDEX + threadIdx.x;
+		bool is_left = false; 
+		bool is_right = false; 
+
+		if (num_elem_pts == 2)
+		{
+			// Get bounds
+			float bounds_min = ((float*)&active_list.d_elem_point1[idx_tna])[s_split_axis];
+			float bounds_max = ((float*)&active_list.d_elem_point2[idx_tna])[s_split_axis];
+			
+			// Check on which sides the triangle is. It might be on both sides!
+			if (d_randoms[tid] < 0.5f)
+			{
+				is_left = bounds_min < s_split_pos || (bounds_min == s_split_pos && bounds_min == bounds_max);	
+				is_right = s_split_pos < bounds_max; 
+			}
+			else 
+			{
+				is_left = bounds_min < s_split_pos;
+				is_right = s_split_pos < bounds_max || (bounds_min == s_split_pos && bounds_min == bounds_max); 
+			}
+		}
+		else 
+		{
+			float val = ((float*)&active_list.d_elem_point1[idx_tna])[s_split_axis];
+			// Cannot use the same criterion (i.e. < and <= or <= and <) for all points.
+			// Else we would have the special case where all points lie in the splitting plane
+			// and therefore all points land on a single side. This would result in an endless
+			// loop in large node stage!
+			if (d_randoms[tid] < 0.5f)
+			{
+				is_left = val < s_split_pos;
+				is_right = s_split_pos <= val;
+			}
+			else 
+			{
+				is_left = val <= s_split_pos;
+				is_right = s_split_pos < val;
+			}
+		}
+		
+		// left 
+		d_out_valid[s_idx_first_elem + idx] = (is_left ? 1 : 0);
+		d_out_valid[active_list.next_free_pos + s_idx_first_elem + idx] = (is_right ? 1 : 0);
+	}
+	
+	
+}
+
 // ---------------------------------------------------------------------
 /*
 /// \brief	Performs empty space cutting. 
@@ -468,7 +570,7 @@ void init_kd_kernels()
 	// Find out how many thread blocks (grid dimension) we can use on the current device.
 	int cur_device;
 	cuda_safe_call_no_sync(cudaGetDevice(&cur_device));
-	cuda_safe_call_no_sync(cudaGetDeviceProperties(&device_prop, cur_device));
+	cuda_safe_call_no_sync(cudaGetDeviceProperties(&device_props, cur_device));
 }
 
 extern "C++"
@@ -478,7 +580,7 @@ void kernel_wrapper_gen_chunk_aabb(const c_kd_node_list& active_list, c_kd_chunk
 	// Note that we use half the chunk size here. This is a reduction optimization.
 	dim3 block_size = dim3(KD_CHUNKSIZE/2, 1, 1);
 	// Avoid the maximum grid size by using two dimensions.
-	dim3 grid_size = CUDA_MAKEGRID2D(chunks_list.num_chunks, device_prop.maxGridSize[0]);
+	dim3 grid_size = CUDA_MAKEGRID2D(chunks_list.num_chunks, device_props.maxGridSize[0]);
 	
 	kernel_gen_chunk_aabb<num_elem_pts><<<grid_size, block_size>>>(active_list, chunks_list);
 }
@@ -543,6 +645,29 @@ void kernel_wrapper_split_large_nodes(const c_kd_node_list& active_list, c_kd_no
 	CUDA_CHECKERROR;
 }
 
+extern "C++"
+template <uint32 num_elem_pts>
+void kernel_wrapper_mark_left_right_elems(const c_kd_node_list& active_list, const c_kd_chunk_list& chunks_list)
+{
+	dim3 block_size = dim3(KD_CHUNKSIZE, 1, 1);
+	dim3 grid_size = CUDA_MAKEGRID2D(chunks_list.num_chunks, device_props.maxGridSize[0]);
+
+	// Build random number array.
+	c_cuda_rng& rng = c_cuda_rng::get_instance();
+	uint32 num_rands = rng.get_aligned_cnt(chunks_list.num_chunks*KD_CHUNKSIZE);
+	c_cuda_memory<float> d_randoms(num_rands);
+	rng.seed(rand());
+	cuda_safe_call_no_sync(rng.gen_rand(d_randoms.get_writable_buf_ptr(), num_rands));
+	
+	
+	
+	
+	
+}
+
 
 extern "C++" template void kernel_wrapper_gen_chunk_aabb<1>(const c_kd_node_list& active_list, c_kd_chunk_list& chunks_list);
 extern "C++" template void kernel_wrapper_gen_chunk_aabb<2>(const c_kd_node_list& active_list, c_kd_chunk_list& chunks_list);
+
+extern "C++" template void kernel_wrapper_mark_left_right_elems<1>(const c_kd_node_list& active_list, const c_kd_chunk_list& chunks_list);
+extern "C++" template void kernel_wrapper_mark_left_right_elems<2>(const c_kd_node_list& active_list, const c_kd_chunk_list& chunks_list);

@@ -26,9 +26,16 @@ void kernel_wrappper_empty_space_cutting(c_kd_node_list& active_list, c_kd_final
 extern "C"
 void kernel_wrapper_split_large_nodes(const c_kd_node_list& active_list, c_kd_node_list& next_list); 
 
+extern "C"
+void kernel_wrapper_count_elems_chunk(const c_kd_chunk_list& chunks_list, uint32 *d_valid_flags, uint32 *d_out_num_elems);
+
 extern "C++"
 template <uint32 num_elem_pts>
 void kernel_wrapper_gen_chunk_aabb(const c_kd_node_list& active_list, c_kd_chunk_list& chunks_list);
+
+extern "C++"
+template <uint32 num_elem_pts>
+void kernel_wrapper_mark_left_right_elems(const c_kd_node_list& active_list, const c_kd_chunk_list& chunks_list, uint32 *d_valid); 
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -40,7 +47,7 @@ c_kdtree_gpu::c_kdtree_gpu(size_t num_input_elems, uint32 num_elems_points, floa
 	, m_root_aabb_min(root_aabb_min)
 	, m_root_aabb_max(root_aabb_max)
 	, m_final_list(NULL)
-	, m_active_node_list(NULL)
+	, m_active_node_list(NULL) 
 	, m_small_node_list(NULL)
 	, m_next_node_list(NULL)
 	, m_chunk_list(NULL)
@@ -186,6 +193,13 @@ void c_kdtree_gpu::process_large_nodes(uint32 *d_final_list_idx_active)
 	compute_nodes_aabbs(); 
 
 	// Split large nodes.
+	split_large_nodes(d_final_list_idx_active);
+
+	// Sort and clip elements to child nodes.
+	sort_clip_to_nodes();
+
+	// Now we have unclipped element bounds, so perform split clipping. Per default, this
+	// does nothing. Clipping has to be realized in subclasses.
 	
 }
 
@@ -228,7 +242,69 @@ void c_kdtree_gpu::split_large_nodes(uint32 *d_final_list_index_active)
 
 	// Set new number of nodes.
 	m_next_node_list->num_nodes = 2*m_active_node_list->num_nodes;
+	
+	
+}
 
+void c_kdtree_gpu::sort_clip_to_nodes()
+{
+	assert(m_chunk_list->num_chunks > 0);
+	
+	uint32 next_free_l; 
+	c_cuda_memory<uint32> d_counts_unaligned(2*m_active_node_list->num_nodes);
+	c_cuda_memory<uint32> d_chunk_counts(2*CUDA_ALIGN(m_chunk_list->num_chunks));
+	// Size: 2*m_pListActive->nextFreePos, first half for left marks, second for right marks.
+	c_cuda_memory<uint32> d_elem_marks(2*m_active_node_list->next_free_pos);
+	
+	// Ensure the next's ENA is large enough.
+	if (m_next_node_list->max_nodes < 2*m_active_node_list->next_free_pos)
+		m_next_node_list->resize_elem_data(2*m_active_node_list->next_free_pos);
+
+	// We virtually duplicate the TNA of the active list and write it virtually twice into the
+	// temporary TNA of the next list which we do not store explicitly.
+
+	// Zero the marks. This is required since not all marks represent valid elements.
+	cuda_safe_call_no_sync(cudaMemset(d_elem_marks.get_writable_buf_ptr(), 0, 2*m_active_node_list->next_free_pos*sizeof(uint32)));
+	
+	// Mark the valid elements in the virtual TNA. This is required since not all elements are
+	// both in left and right child. The marked flags are of the same size as the virtual TNA and
+	// hold 1 for valid tris, else 0. 
+	if (m_active_node_list->num_elem_points == 1)
+		kernel_wrapper_mark_left_right_elems<1>(*m_active_node_list, *m_chunk_list, d_elem_marks.get_writable_buf_ptr());
+	else 
+		kernel_wrapper_mark_left_right_elems<2>(*m_active_node_list, *m_chunk_list, d_elem_marks.get_writable_buf_ptr());
+	
+	// Determine per chunk element count for nodes using per block reduction.
+	// ... left nodes
+	kernel_wrapper_count_elems_chunk(*m_chunk_list, d_elem_marks.get_buf_ptr(), d_chunk_counts.get_writable_buf_ptr());
+	// ... right nodes
+	kernel_wrapper_count_elems_chunk(*m_chunk_list, d_elem_marks.get_buf_ptr()+m_active_node_list->next_free_pos, d_chunk_counts.get_writable_buf_ptr()+CUDA_ALIGN(m_chunk_list->num_chunks));
+	
+	// Perform segmented reduction on per chunk results to get per child nodes results. The owner
+	// list is the chunk's idxNode list.
+	
+	// left nodes 
+	cuda_segmented_reduce_add(d_chunk_counts.get_buf_ptr(), 
+		m_chunk_list->d_node_idx, 
+		m_chunk_list->num_chunks, 
+		(uint32)0, 
+		d_counts_unaligned.get_writable_buf_ptr(), 
+		m_active_node_list->num_nodes);
+	
+	// right nodes 
+	cuda_segmented_reduce_add(d_chunk_counts.get_buf_ptr()+CUDA_ALIGN(m_chunk_list->num_chunks),
+		m_chunk_list->d_node_idx, 
+		m_chunk_list->num_chunks, 
+		(uint32)0, 
+		d_counts_unaligned.get_writable_buf_ptr()+m_active_node_list->num_nodes,
+		m_active_node_list->num_nodes); 
+
+	next_free_l = compact_elem_data(m_next_node_list, 0, 0, 
+									m_active_node_list, 0, 2 * m_active_node_list->num_nodes, 
+									d_elem_marks.get_buf_ptr(), d_counts_unaligned.get_buf_ptr(), 2);
+	
+
+	m_next_node_list->next_free_pos = next_free_l;
 }
 
 void c_kdtree_gpu::create_chunk_list(c_kd_node_list *node_list)
@@ -236,7 +312,6 @@ void c_kdtree_gpu::create_chunk_list(c_kd_node_list *node_list)
 	if (m_current_chunk_list_src == node_list)
 		return;
 	
-
 	c_cuda_memory<uint32> d_counts(node_list->num_nodes);
 	c_cuda_memory<uint32> d_offsets(node_list->num_nodes);
 	
@@ -267,3 +342,119 @@ void c_kdtree_gpu::create_chunk_list(c_kd_node_list *node_list)
 	
 }
 
+
+
+uint32 c_kdtree_gpu::compact_elem_data(c_kd_node_list *dest_node_list, 
+									uint32 dest_offset, 
+									uint32 node_offset, 
+									c_kd_node_list *src_node_list, 
+									uint32 src_offset, 
+									uint32 num_src_nodes, 
+									uint32 *d_valid_marks, 
+									uint32 *d_counts_unaligned, 
+									uint32 num_segments /* = 1 */)
+{
+	assert(num_segments > 0);
+	
+	c_cuda_memory<uint32> d_offsets_unaligned(num_src_nodes); 
+	c_cuda_memory<uint32> d_counts_aligned(num_src_nodes); 
+	c_cuda_memory<uint32> d_offsets_aligned(num_src_nodes);
+
+	// Get unaligned offsets.
+	cuda_scan(d_counts_aligned.get_buf_ptr(), num_src_nodes, false, d_offsets_aligned.get_writable_buf_ptr());
+
+	// Get aligned counts to temp buffer to avoid uncoalesced access (here and later).
+	cuda_align_counts(d_counts_aligned.get_writable_buf_ptr(), d_counts_unaligned, num_src_nodes);
+
+	cuda_scan(d_counts_aligned.get_buf_ptr(), num_src_nodes, false, d_offsets_aligned.get_writable_buf_ptr());
+	
+	// Now copy in resulting *unaligned* counts and aligned offsets.
+	cuda_safe_call_no_sync(cudaMemcpy(dest_node_list->d_num_elems_array+node_offset, d_counts_unaligned, num_src_nodes*sizeof(uint32), cudaMemcpyDeviceToDevice));
+	cuda_safe_call_no_sync(cudaMemcpy(dest_node_list->d_first_elem_idx+node_offset, d_offsets_aligned.get_buf_ptr(), num_src_nodes*sizeof(uint32), cudaMemcpyDeviceToDevice));
+	
+	// Offset d_idxFirstElem by destOffset.
+	if (dest_offset > 0)
+		cuda_constant_add<uint32>(dest_node_list->d_first_elem_idx+node_offset, num_src_nodes, dest_offset);
+
+	// Get next free position by reduction. Using two device-to-host memcpys were slower than this!
+	uint32 aligned_sum, next_free_pos; 
+	cuda_reduce_add(aligned_sum, d_counts_aligned.get_buf_ptr(), num_src_nodes, (uint32)0);
+	next_free_pos = aligned_sum + dest_offset;
+
+	// Move elements only if there are any!
+	if (aligned_sum == 0)
+		yart_log_message("kd - WARNING: Splitting nodes and zero elements on one side!\n");
+	else
+	{
+		// Algorithm to compute addresses (where to put which compacted element).
+		// N        -  N  -  N        -  (node starts)
+		// 0  0  0  0 -1  0 -1  0  0  0  (inverse difference of counts at aligned offsets, offsetted by one node!)
+		// 0  0  0  0 -1 -1 -2 -2 -2 -2  (inclusive scan to distribute values)
+		// 0  1  2  3  3  4  4  5  6  7  (AddIdentity)
+		// x  x  x  -  x  -  x  x  x  -
+		// -> Addresses where to put which compact elements.
+		c_cuda_memory<uint32> d_buf_temp(aligned_sum);
+		c_cuda_memory<uint32> d_addresses(aligned_sum);
+		c_cuda_memory<uint32> d_src_addr(num_segments*src_node_list->next_free_pos);
+
+		// Nothing to compute if there is only one source node!
+		if (num_src_nodes == 1)
+			cuda_init_identity(d_addresses.get_writable_buf_ptr(), aligned_sum); 
+		else
+		{
+			// 1. Get inverse count differences (that is unaligned - aligned = -(aligned - unaligned)).
+			c_cuda_memory<uint32> d_inv_count_diffs(num_src_nodes);
+			cuda_safe_call_no_sync(cudaMemcpy(d_inv_count_diffs.get_writable_buf_ptr(), d_counts_unaligned, num_src_nodes*sizeof(uint32), cudaMemcpyDeviceToDevice));
+			cuda_array_op<cuda_op_sub, uint32>(d_inv_count_diffs.get_writable_buf_ptr(), d_counts_aligned.get_buf_ptr(), num_src_nodes);
+
+			// 2. Copy inverse count differences to node starts in d_bufTemp, but offset them by one node
+			//    so that the first node gets zero as difference.
+			cuda_safe_call_no_sync(cudaMemset(d_addresses.get_writable_buf_ptr(), 0, aligned_sum*sizeof(uint32)));
+			//    Only need to set numSourceNode-1 elements, starting with d_offsetsAligned + 1 as
+			//    first address.
+			cuda_set_at_address((uint32*)d_addresses.get_writable_buf_ptr(), d_offsets_aligned.get_buf_ptr() + 1, (uint32*)d_inv_count_diffs.get_buf_ptr(), num_src_nodes - 1);
+			
+			// 3. Scan the differences to distribute them to the other node elements.
+			//    Do this inplace in d_addresses.
+			cuda_scan(d_addresses.get_buf_ptr(), aligned_sum, true, d_addresses.get_writable_buf_ptr());
+
+			// 4. Add identity
+			cuda_add_identity(d_addresses.get_writable_buf_ptr(), aligned_sum);
+		}
+
+		// To avoid multiple calls of compact we just compact an identity array once
+		// to generate the source addresses. 
+		for (uint32 seg = 0; seg < num_segments; ++seg)
+			cuda_init_identity(d_src_addr.get_writable_buf_ptr() + seg * src_node_list->next_free_pos, src_node_list->next_free_pos);
+
+		cuda_safe_call_no_sync(cudaMemset(d_buf_temp.get_writable_buf_ptr(), 0, aligned_sum*sizeof(uint32)));
+		cuda_compact(d_src_addr.get_buf_ptr(), d_valid_marks, num_segments*src_node_list->next_free_pos, d_buf_temp.get_writable_buf_ptr(), d_temp_val.get_writable_buf_ptr());
+		
+
+		// Ensure the destination list element data is large enough.
+		if (dest_node_list->max_elems < next_free_pos)
+			dest_node_list->resize_elem_data(next_free_pos);
+
+		// Now we can generate the source addresses by setting the compacted data
+		// at the positions defined by d_addresses:
+		// N     - N   N     -  (node starts)
+		// 0 1 2 3 3 4 5 6 7 8  (identity - seg-scan result)
+		// A B C D E F G H 0 0  (compact)
+		// A B C D D E F G H 0	(SetFromAddress(d_srcAddr, d_addresses, compact)
+		//       -           -
+		// NOTE: We assume here that the compacted array has at least as many elements
+		//       as the address array. Therefore the 0-read is possible. It doesn't
+		//       destroy the result because the 0 values don't matter.
+
+		cuda_set_from_address((uint32*)d_src_addr.get_writable_buf_ptr(), d_addresses.get_buf_ptr(), (uint32*)d_buf_temp.get_buf_ptr(), aligned_sum);
+		
+		cuda_set_from_address(dest_node_list->d_node_elems_list + dest_offset, d_src_addr.get_buf_ptr(), src_node_list->d_node_elems_list, aligned_sum);
+
+		cuda_set_from_address(dest_node_list->d_elem_point1 + dest_offset, d_src_addr.get_buf_ptr(), src_node_list->d_elem_point1, aligned_sum);
+		
+		if (dest_node_list->num_elem_points == 2)
+			cuda_set_from_address(dest_node_list->d_elem_point2 + dest_offset, d_src_addr.get_buf_ptr(), src_node_list->d_elem_point2, aligned_sum);
+	}
+
+	return next_free_pos;
+}

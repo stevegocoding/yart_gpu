@@ -2,6 +2,11 @@
 #include "kernel_data.h"
 #include "kdtree_kernel_data.h"
 #include "cuda_utils.h"
+#include "cuda_utils_device.h"
+#include "functor_device.h"
+
+// Defined in kdtree.cu
+extern cudaDeviceProp device_props;
 
 // ---------------------------------------------------------------------
 /*
@@ -65,6 +70,42 @@ __global__ void kernel_gen_chunks(uint32 *d_num_elems_array, uint32 *d_first_ele
 	}
 }
 
+__global__ void kernel_count_elems_chunk(c_kd_chunk_list chunks_list, uint32 *d_valid_flags, uint32 *d_out_num_elems)
+{
+	uint32 chk = CUDA_GRID2DINDEX;
+
+	__shared__ uint32 s_num_elems_chunk;
+	__shared__ uint32 s_idx_first_elem;
+	
+	if (threadIdx.x == 0)
+	{
+		s_num_elems_chunk = chunks_list.d_num_elems[chk];
+		s_idx_first_elem = chunks_list.d_first_elem_idx[chk];
+	}
+
+	__syncthreads();
+	
+	// Copy chunks's flags into shared memory. Preload and -add two values directly.
+	__shared__ uint32 s_mem[KD_CHUNKSIZE];
+	uint32 v1 = 0; 
+	uint32 v2 = 0;
+	
+	if (threadIdx.x < s_num_elems_chunk)
+		v1 = d_valid_flags[s_idx_first_elem + threadIdx.x];
+	if (threadIdx.x + blockDim.x < s_num_elems_chunk)
+		v2 = d_valid_flags[s_idx_first_elem + threadIdx.x + blockDim.x];
+	s_mem[threadIdx.x] = v1 + v2; 
+	__syncthreads();
+
+	// Now perform reduction on chunks's flags.
+	uint32 res = device_reduce_fast<uint32, KD_CHUNKSIZE, op_add<uint32>>(s_mem);
+	
+	if (threadIdx.x == 0)
+		d_out_num_elems[chk] = res;
+	
+	
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 extern "C"
@@ -88,4 +129,14 @@ void kernel_wrapper_kd_gen_chunks(uint32 *d_num_elems_array,
 	dim3 grid_size = dim3(CUDA_DIVUP(num_nodes, block_size.x), 1, 1);
 
 	kernel_gen_chunks<<<grid_size, block_size>>>(d_num_elems_array, d_idx_first_elem_array, num_nodes, d_offsets, chunk_list);
+}
+
+extern "C"
+void kernel_wrapper_count_elems_chunk(const c_kd_chunk_list& chunks_list, uint32 *d_valid_flags, uint32 *d_out_num_elems)
+{
+	// Note that we use half the chunk size here. This is a reduction optimization.
+	dim3 block_size = dim3(KD_CHUNKSIZE/2, 1, 1);
+	dim3 grid_size = CUDA_MAKEGRID2D(chunks_list.num_chunks, device_props.maxGridSize[0]);
+	
+	kernel_count_elems_chunk<<<grid_size, block_size>>>(chunks_list, d_valid_flags, d_out_num_elems);
 }

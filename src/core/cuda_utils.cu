@@ -56,12 +56,68 @@ __global__ void kernel_set_from_address(T* d_array, uint* d_src_addr, T* d_vals,
 	}
 }
 
+template <class T>
+__global__ void kernel_set_at_address(T *d_array, uint32 *d_address, T *d_vals, uint32 count_vals)
+{
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x; 
+	
+	if (idx < count_vals)
+	{
+		uint32 addr = d_address[idx];
+		d_array[addr] = d_vals[idx];
+	}
+}
+
 __global__ void kernel_init_identity(uint32 *d_buffer, uint32 count)
 {
 	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < count)
 		d_buffer[idx] = idx;
 }
+
+__global__ void kernel_add_identity(uint32 *d_buffer, uint32 count)
+{
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < count)
+		d_buffer[idx] += idx; 
+}
+
+__global__ void kernel_align_counts(uint32 *d_out_aligned, uint32 *d_counts, uint32 count)
+{
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (idx < count)
+	{
+		uint32 old = d_counts[idx];
+		d_out_aligned[idx] = CUDA_ALIGN_NZERO(old);
+	}
+}
+
+template <e_cuda_op op, typename T>
+__global__ void kernel_array_op(T *d_dest_array, T *d_other_array, uint32 count)
+{
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
+	
+	if (idx < count)
+	{
+		switch(op)	// Compile Time
+		{
+		case cuda_op_add:
+			d_dest_array[idx] = d_dest_array[idx] + d_other_array[idx];
+			break;
+		case cuda_op_sub:
+			d_dest_array[idx] = d_dest_array[idx] - d_other_array[idx];
+			break;
+		case cuda_op_mul:
+			d_dest_array[idx] = d_dest_array[idx] * d_other_array[idx];
+			break;
+		case cuda_op_div:
+			d_dest_array[idx] = d_dest_array[idx] / d_other_array[idx];
+			break; 
+		}
+	}
+}
+
  
 // ---------------------------------------------------------------------
 /*
@@ -89,7 +145,17 @@ void kernel_wrapper_set_from_address(T *d_array, uint32 *d_src_addr, T *d_vals, 
 	dim3 grid_size = dim3(CUDA_DIVUP(count_target, block_size.x), 1, 1);
 	
 	kernel_set_from_address<<<grid_size, block_size>>>(d_array, d_src_addr, d_vals, count_target);
-} 
+}
+
+extern "C++"
+template <typename T>
+void kernel_wrapper_set_at_address(T *d_array, uint32 *d_address, T *d_vals, uint32 count_vals)
+{
+	dim3 block_size = dim3(256, 1, 1); 
+	dim3 grid_size = dim3(CUDA_DIVUP(count_vals, block_size.x), 1, 1);
+
+	kernel_set_at_address(d_array, d_address, d_vals, count_vals); 
+}
 
 extern "C"
 void kernel_wrapper_init_identity(uint32 *d_buffer, uint32 count)
@@ -99,6 +165,16 @@ void kernel_wrapper_init_identity(uint32 *d_buffer, uint32 count)
 	
 	kernel_init_identity<<<grid_size, block_size>>>(d_buffer, count);
 	CUDA_CHECKERROR;
+}
+
+extern "C"
+void kernel_wrapper_add_identity(uint32 *d_buffer, uint32 count)
+{
+	dim3 block_size = dim3(256, 1, 1);
+	dim3 grid_size = dim3(CUDA_DIVUP(count, block_size.x), 1, 1);
+	
+	kernel_add_identity<<<grid_size, block_size>>>(d_buffer, count);
+	CUDA_CHECKERROR; 
 }
 
 extern "C++"
@@ -124,6 +200,16 @@ void device_constant_mul(T *d_array, uint32 count, T constant)
 }
 
 extern "C++"
+template <typename T>
+void device_array_op(T *d_dest_array, T *d_other_array, uint32 count)
+{
+	dim3 block_size = dim3(256, 1, 1);
+	dim3 grid_size = dim3(CUDA_DIVUP(count, block_size.x), 1, 1); 
+	
+	kernel_array_op<op, T><<<grid_size, block_size>>>(d_dest_array, d_other_array, count);
+}
+
+extern "C++"
 template <typename T> 
 void device_compact(T *d_in, unsigned *d_stencil, size_t num_elems, T *d_out_campacted, uint32 *d_out_new_count)
 {	
@@ -142,6 +228,20 @@ void device_reduce_add(T& result, T *d_in, size_t count, T init)
 {
 	thrust::device_ptr<uint32> d_in_ptr = thrust::device_pointer_cast(d_in); 
 	result = thrust::reduce(d_in_ptr, d_in_ptr+count, init, thrust::plus<T>());
+}
+
+extern "C++"
+template <typename T>
+void device_segmented_reduce_add(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	c_cuda_memory<uint32> d_keys_output(count); 
+
+	thrust::device_ptr<uint32> d_keys_ptr = thrust::device_pointer_cast<uint32>(d_owner); 
+	thrust::device_ptr<T> d_data_ptr = thrust::device_pointer_cast<T>(d_data);
+	thrust::device_ptr<T> d_result_ptr = thrust::device_pointer_cast<T>(d_result);
+	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.get_writable_buf_ptr());  
+
+	thrust::reduce_by_key(d_keys_ptr, d_keys_ptr+count, d_data_ptr, d_keys_output_ptr, d_result_ptr, thrust::equal_to<uint32>(), op_add<T>());
 }
 
 extern "C++"
@@ -172,6 +272,16 @@ void device_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T ide
 	thrust::reduce_by_key(d_keys_ptr, d_keys_ptr+count, d_data_ptr, d_keys_output_ptr, d_result_ptr, thrust::equal_to<uint32>(), op_maximum<T>());
 }
 
+
+extern "C"
+void kernel_wrapper_align_counts(uint32 *d_out_aligned, uint32 *d_counts, uint32 count)
+{
+	dim3 block_size = dim3(256, 1, 1);
+	dim3 grid_size = dim3(CUDA_DIVUP(count, block_size.x), 1, 1);
+
+	kernel_align_counts<<<grid_size, block_size>>>(d_out_aligned, d_counts, count);
+}
+
 template void device_constant_add<float>(float *d_array, uint32 count, float constant); 
 template void device_constant_sub<float>(float *d_array, uint32 count, float constant); 
 template void device_constant_mul<float>(float *d_array, uint32 count, float constant); 
@@ -183,15 +293,18 @@ template void device_compact<uint32>(uint32 *d_in, unsigned *d_stencil, size_t n
 
 template void device_reduce_add<uint32>(uint32& result, uint32 *d_in, size_t count, uint32 init);
 
+template void device_segmented_reduce_add<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
+template void device_segmented_reduce_add<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
+template void device_segmented_reduce_add<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
+
 template void device_segmented_reduce_min<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
 template void device_segmented_reduce_min<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
 template void device_segmented_reduce_min<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
 
-/*
 template void device_segmented_reduce_max<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
 template void device_segmented_reduce_max<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
 template void device_segmented_reduce_max<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
-*/
+
 
 template void kernel_wrapper_set_from_address<uint32>(uint32 *d_array, uint32 *d_src_addr, uint32 *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<float>(float *d_array, uint32 *d_src_addr, float *d_vals, uint32 count_target);

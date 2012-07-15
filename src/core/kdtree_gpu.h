@@ -104,6 +104,19 @@ protected:
 
 	// ---------------------------------------------------------------------
 	/*
+	/// \brief	Performs split clipping for large nodes.
+	/// 		
+	/// 		The default implementation does nothing. This is enough for point kd-trees as points
+	/// 		have a degenerated AABB that cannot be reduced by clipping the point to a child nodes
+	/// 		AABB. But for other element types, e.g. triangles, split clipping can help improving
+	/// 		kd-tree quality. Here the element is clipped to the child node bounds and a new
+	/// 		element AABB is generated. 
+	*/ 
+	// ---------------------------------------------------------------------
+	virtual void perform_split_clipping(c_kd_node_list *parent_list, c_kd_node_list *child_list) {};
+
+	// ---------------------------------------------------------------------
+	/*
 	/// \brief	Fills chunk list #m_pChunkList with chunks for the given node list.
 	///
 	///			The creation is only performed when the current chunk list #m_pChunkList is not
@@ -113,6 +126,8 @@ protected:
 	*/ 
 	// ---------------------------------------------------------------------
 	void create_chunk_list(c_kd_node_list *node_list);
+
+	
 	
 	// Currently active nodes list.
 	c_kd_node_list *m_active_node_list; 
@@ -147,9 +162,21 @@ private:
 	// along the longest axis.
 	void split_large_nodes(uint32 *d_final_list_index_active);
 
+	void sort_clip_to_nodes();
+
 	// Performs preorder traversal of the final tree to generate a final node list. 
 	void preorder_traversal();
 
+	// Compacts the element data from source to destination.
+	uint32 compact_elem_data(c_kd_node_list *dest_node_list, 
+							uint32 dest_offset, 
+							uint32 node_offset,
+							c_kd_node_list *src_node_list,
+							uint32 src_offset, 
+							uint32 num_src_nodes,
+							uint32 *d_valid_marks, 
+							uint32 *d_counts_unaligned,
+							uint32 num_segments = 1);
 
 	// The final node list
 	c_kdtree_data *m_kd_data; 

@@ -68,6 +68,15 @@ struct is_valid
 	}
 };
 
+
+template <typename T>
+struct op_add
+{
+	__host__ __device__ T operator() (T& a, T& b) { return a + b; }
+	__host__ __device__ T operator() (volatile T& a, volatile T& b) { return a + b; }
+}; 
+
+
 template <typename T>
 struct op_minimum
 {

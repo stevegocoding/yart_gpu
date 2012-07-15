@@ -26,6 +26,18 @@ protected:
 	// ---------------------------------------------------------------------
 	virtual void add_root_node(c_kd_node_list *node_list);
 
+	// ---------------------------------------------------------------------
+	/*
+	/// \brief	Performs split clipping for large nodes.
+	/// 		
+	/// 		For triangles, split clipping can be used to reduce the actual triangle AABB within
+	/// 		child nodes after node splitting. This was suggested by Havran, "Heuristic Ray
+	/// 		Shooting Algorithms", 2000. To parallelize the process, this method computes a chunk
+	/// 		list for child node list.  
+	*/ 
+	// ---------------------------------------------------------------------
+	virtual void perform_split_clipping(c_kd_node_list *parent_list, c_kd_node_list *child_list);
+	
 private:
 	
 	c_triangle_data *m_tri_data;
