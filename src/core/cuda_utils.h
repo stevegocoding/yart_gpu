@@ -164,6 +164,9 @@ void cuda_compact(T *d_in, unsigned *d_stencil, size_t count, T *d_out_compacted
 template <typename T>
 void cuda_reduce_add(T& result, T *d_data, size_t count, T identity);
 
+template <typename T> 
+void cuda_reduce_max(T& result, T *d_data, size_t count, T identity); 
+
 // ---------------------------------------------------------------------
 /*
 /// \brief	Performs segmented reduction on \a d_data.
@@ -223,6 +226,9 @@ void cuda_set_at_address(T *d_array, uint32 *d_address, T *d_vals, uint32 count_
 void cuda_init_identity(uint32 *d_buffer, uint32 count);
 
 
+template <typename T>
+void cuda_init_constant(T *d_buffer, uint32 count, T constant); 
+
 // ---------------------------------------------------------------------
 /*
 /// \brief	Adds the index to all elements of the given buffer.
@@ -265,6 +271,15 @@ void cuda_constant_sub(T* d_array, uint32 count, T constant);
 template <typename T>
 void cuda_constant_mul(T* d_array, uint32 count, T constant);
 
+// ---------------------------------------------------------------------
+/*
+/// \brief	Inverses the given "binary" 0-1-buffer.
+/// 		
+/// 		This is done by setting all one (1) components to zero (0) and all zero components to
+/// 		one respectively. Each thread handles one component of the buffer. 
+*/ 
+// ---------------------------------------------------------------------
+void cuda_inverse_binary(uint32 *d_buffer, uint32 count);
 
 
 template <e_cuda_op op, typename T> 

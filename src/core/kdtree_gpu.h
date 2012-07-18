@@ -155,6 +155,9 @@ private:
 	// Processes large nodes in the current active list.
 	void process_large_nodes(uint32 *d_final_list_idx_active);
 
+	void pre_process_small_nodes();
+	void process_small_nodes();
+
 	// Computes per node bounding boxes.
 	void compute_nodes_aabbs(); 
 
@@ -163,6 +166,9 @@ private:
 	void split_large_nodes(uint32 *d_final_list_index_active);
 
 	void sort_clip_to_nodes();
+	
+	// Updates the small list by removing all small nodes from the next list.  
+	void update_small_list(uint32 *d_final_list_index_active); 
 
 	// Performs preorder traversal of the final tree to generate a final node list. 
 	void preorder_traversal();

@@ -50,7 +50,7 @@ void initialise()
 	
 	for (int i = 0; i < 3; ++i)
 	{
-		for (size_t f = 0; f < tri_data.num_tris; ++f)
+		for (size_t f = 0; f < tri_data.num_tris; ++f) 
 		{
 			print_float4(ofs, h_verts[i][f]);
 		}

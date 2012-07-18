@@ -118,6 +118,21 @@ __global__ void kernel_array_op(T *d_dest_array, T *d_other_array, uint32 count)
 	}
 }
 
+__global__ void kernel_inverse_binary(uint32 *d_buffer, uint32 count)
+{
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
+	
+	if (idx < count)
+		d_buffer[idx] = 1 - d_buffer[idx];
+}
+
+template <typename T>
+__global__ void kernel_init_constant(T *d_buffer, uint32 count, T constant)
+{
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < count)
+		d_buffer[idx] = constant; 
+}
  
 // ---------------------------------------------------------------------
 /*
@@ -167,6 +182,16 @@ void kernel_wrapper_init_identity(uint32 *d_buffer, uint32 count)
 	CUDA_CHECKERROR;
 }
 
+extern "C++"
+template <typename T> 
+void kernel_wrapper_init_constant(T *d_buffer, uint32 count, T constant)
+{
+	dim3 block_size = dim3(256, 1, 1);
+	dim3 grid_size = dim3(CUDA_DIVUP(count, block_size.x), 1, 1); 
+	
+	kernel_init_constant<T><<<grid_size, block_size>>>(d_buffer, count, constant);
+}
+
 extern "C"
 void kernel_wrapper_add_identity(uint32 *d_buffer, uint32 count)
 {
@@ -200,7 +225,7 @@ void device_constant_mul(T *d_array, uint32 count, T constant)
 }
 
 extern "C++"
-template <typename T>
+template <e_cuda_op op, typename T>
 void device_array_op(T *d_dest_array, T *d_other_array, uint32 count)
 {
 	dim3 block_size = dim3(256, 1, 1);
@@ -228,6 +253,14 @@ void device_reduce_add(T& result, T *d_in, size_t count, T init)
 {
 	thrust::device_ptr<uint32> d_in_ptr = thrust::device_pointer_cast(d_in); 
 	result = thrust::reduce(d_in_ptr, d_in_ptr+count, init, thrust::plus<T>());
+}
+
+extern "C++"
+template <typename T> 
+void device_reduce_max(T& result, T *d_in, size_t count, T init)
+{
+	thrust::device_ptr<uint32> d_in_ptr = thrust::device_pointer_cast(d_in); 
+	result = thrust::reduce(d_in_ptr, d_in_ptr+count, init, thrust::maximum<T>());
 }
 
 extern "C++"
@@ -282,6 +315,17 @@ void kernel_wrapper_align_counts(uint32 *d_out_aligned, uint32 *d_counts, uint32
 	kernel_align_counts<<<grid_size, block_size>>>(d_out_aligned, d_counts, count);
 }
 
+
+extern "C"
+void kernel_wrapper_inverse_binary(uint32 *d_buffer, uint32 count)
+{
+	dim3 block_size = dim3(256, 1, 1);
+	dim3 grid_size = dim3(CUDA_DIVUP(count, block_size.x), 1, 1);
+
+	kernel_inverse_binary<<<grid_size, block_size>>>(d_buffer, count);
+	CUDA_CHECKERROR;
+}
+
 template void device_constant_add<float>(float *d_array, uint32 count, float constant); 
 template void device_constant_sub<float>(float *d_array, uint32 count, float constant); 
 template void device_constant_mul<float>(float *d_array, uint32 count, float constant); 
@@ -292,6 +336,7 @@ template void device_constant_mul<uint32>(uint32 *d_array, uint32 count, uint32 
 template void device_compact<uint32>(uint32 *d_in, unsigned *d_stencil, size_t num_elems, uint32 *d_out_campacted, uint32 *d_out_new_count);
 
 template void device_reduce_add<uint32>(uint32& result, uint32 *d_in, size_t count, uint32 init);
+template void device_reduce_max<uint32>(uint32& result, uint32 *d_in, size_t count, uint32 init);
 
 template void device_segmented_reduce_add<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
 template void device_segmented_reduce_add<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);

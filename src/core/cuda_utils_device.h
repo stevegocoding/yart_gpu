@@ -67,4 +67,27 @@ __device__ T device_reduce_fast(T *s_data, op_functor op = op_functor())
 }
 
 
+inline __device__ uint32 device_count_bits(uint32 value)
+{
+#define TWO(c) (0x1u << (c))
+#define MASK(c) (((unsigned long long int)(-1)) / (TWO(TWO(c)) + 1u))
+#define COUNT(x,c) ((x) & MASK(c)) + (((x) >> (TWO(c))) & MASK(c))
+
+	value = COUNT(value, 0);
+	value = COUNT(value, 1);
+	value = COUNT(value, 2);
+	value = COUNT(value, 3);
+	value = COUNT(value, 4);
+	// value = COUNT(value, 5); Shift count too large warning when compiling...
+	return value;
+}
+
+inline __device__ uint32 device_count_bits(unsigned long long int value)
+{
+	uint result = device_count_bits((uint32)(value & 0x00000000FFFFFFFF));
+	result += device_count_bits((uint32)((value & 0xFFFFFFFF00000000) >> 32));
+	return result;
+}
+
+
 #endif // __cuda_utils_device_h__

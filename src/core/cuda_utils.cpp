@@ -68,14 +68,30 @@ void device_reduce_add(T& result, T *d_in, size_t count, T init);
 
 extern "C++"
 template <typename T>
+void device_reduce_max(T& result, T *d_in, size_t count, T init); 
+
+extern "C++"
+template <typename T>
 void device_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
 
 extern "C++"
 template <typename T>
 void device_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
 
+// ---------------------------------------------------------------------
+/*
+	Utilities
+*/ 
+// ---------------------------------------------------------------------
 extern "C"
 void kernel_wrapper_align_counts(uint32 *d_out_aligned, uint32 *d_counts, uint32 count);
+
+extern "C"
+void kernel_wrapper_inverse_binary(uint32 *d_buffer, uint32 count);
+
+extern "C++"
+template <typename T> 
+void kernel_wrapper_init_constant(T *d_buffer, uint32 count, T constant);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -183,9 +199,15 @@ void cuda_compact_in_place(T *d_data, uint32 *d_src_addr, uint32 old_count, uint
 template <typename T> 
 void cuda_reduce_add(T& result, T *d_data, size_t count, T identity)
 {
-	// if (op == e_cuda_op)
 	assert(d_data && count > 0);	
-	device_reduce_add(result, d_data, count, identity); 	
+	device_reduce_add(result, d_data, count, identity); 
+}
+
+template <typename T>
+void cuda_reduce_max(T& result, T *d_data, size_t count, T identity)
+{
+	assert(d_data && count > 0);	
+	device_reduce_max(result, d_data, count, identity); 
 }
 
 template <typename T> 
@@ -229,6 +251,13 @@ void cuda_init_identity(uint32 *d_buffer, uint32 count)
 	kernel_wrapper_init_identity(d_buffer, count); 
 }
 
+template <typename T>
+void cuda_init_constant(T *d_buffer, uint32 count, T constant)
+{
+	assert(d_buffer && count > 0);
+	kernel_wrapper_init_constant(d_buffer, count, constant); 
+}
+
 void cuda_add_identity(uint32 *d_buffer, uint32 count)
 {
 	assert(d_buffer && count > 0);
@@ -241,7 +270,10 @@ void cuda_align_counts(uint32 *d_out_aligned, uint32 *d_counts, uint32 count)
 	kernel_wrapper_align_counts(d_out_aligned, d_counts, count);
 }
 
-
+void cuda_inverse_binary(uint32 *d_buffer, uint32 count)
+{
+	
+}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -266,6 +298,9 @@ template void cuda_constant_add<uint32>(uint32 *d_array, uint32 count, uint32 co
 template void cuda_constant_sub<uint32>(uint32 *d_array, uint32 count, uint32 constant);
 template void cuda_constant_mul<uint32>(uint32 *d_array, uint32 count, uint32 constant);
 
+template void cuda_init_constant<uint>(uint* d_buffer, uint count, uint constant);
+template void cuda_init_constant<float>(float* d_buffer, uint count, float constant);
+
 template void cuda_array_op<cuda_op_add, float> (float *d_dest_array, float *d_other_array, uint32 count);
 template void cuda_array_op<cuda_op_add, uint32> (uint32 *d_dest_array, uint32 *d_other_array, uint32 count);
 template void cuda_array_op<cuda_op_sub, float> (float *d_dest_array, float *d_other_array, uint32 count);
@@ -288,6 +323,7 @@ template void cuda_compact_in_place<float4>(float4 *d_data, uint32 *d_src_addr, 
 template void cuda_compact<uint32>(uint32 *d_in, unsigned *d_stencil, size_t count, uint32 *d_out_compacted, uint32 *d_out_new_count);
 
 template void cuda_reduce_add<uint32>(uint32& result, uint32 *d_data, size_t count, uint32 init);
+template void cuda_reduce_max<uint32>(uint32& result, uint32 *d_data, size_t count, uint32 init);
 
 template void cuda_segmented_reduce_min<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
 template void cuda_segmented_reduce_min<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);

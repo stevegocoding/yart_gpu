@@ -11,6 +11,8 @@
 /// Maximum chunk size used for chunk lists. Should be power of 2.
 #define KD_CHUNKSIZE		256
 
+/// Maximum number of elements for small nodes given by ::ElementMask.
+#define KD_SMALL_NODE_MAX	64
 
 // Element mask type used for element bit masks in small node stage. Currently up to 64 bit.
 typedef unsigned long long elem_mask_t;

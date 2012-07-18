@@ -122,9 +122,7 @@ void init_device_triangle_data(c_triangle_data *tri_data, c_scene *scene)
 	SAFE_DELETE_ARRAY(temp_buf_float2);
 	SAFE_DELETE_ARRAY(temp_pos_buf);
 	SAFE_DELETE_ARRAY(temp_normal_buf);
-	*/
-	
-	
+	*/ 	
 }
 
 void release_device_triangle_data(c_triangle_data *tri_data)
