@@ -90,7 +90,7 @@ struct kd_small_node_list
 	float *d_split_pos;
 
 	/// See KDNodeList::d_idxSmallRoot.
-	uint *d_idx_small_root; 
+	uint32 *d_idx_small_root; 
 	/// See KDNodeList::d_elemMask.
 	elem_mask_t *d_elem_mask;
 	
@@ -487,7 +487,7 @@ __global__ void kernel_empty_space_cutting(c_kd_node_list active_list, c_kd_fina
 										uint32 *d_can_cutoff, uint32 *d_cut_offsets, uint32 num_cuts,
 										uint32* d_final_list_idx)
 {
-	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
 	
 	if (idx < active_list.num_nodes && d_can_cutoff[idx])
 	{
@@ -589,7 +589,8 @@ __global__ void kernel_split_large_nodes(const c_kd_node_list active_list, kd_no
 		float v3 = aabb_max_child[longest]-aabb_min_child[longest]; 
 		float v4 = 0.5f * v3; 
 		float v5 = v4 + v1;  
-		float split_pos = v1 + .5f * v3; 
+		// float split_pos = v1 + .5f * v3; 
+		float split_pos = aabb_min_child[longest] + (aabb_max_child[longest] - aabb_min_child[longest]) * 0.5f; 
 		
 		// Split position 
 		// float split_pos = ((float*)&aabb_min_inherit)[longest] + 0.5f * ( ((float*)&aabb_max_inherit)[longest] - ((float*)&aabb_min_inherit)[longest] );
@@ -1635,7 +1636,7 @@ void kernel_wrapper_split_small_nodes(const c_kd_node_list& active_list,
 									const c_kd_node_list& next_list, 
 									uint32 *d_in_best_split, 
 									float *d_in_split_cost, 
-									uint *d_out_is_split)
+									uint32 *d_out_is_split)
 {
 	dim3 block_size = dim3(256, 1, 1);
 	dim3 gird_size = dim3(CUDA_DIVUP(active_list.num_nodes, block_size.x), 1, 1);

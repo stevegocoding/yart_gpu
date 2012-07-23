@@ -343,8 +343,8 @@ template void cuda_constant_add<uint32>(uint32 *d_array, uint32 count, uint32 co
 template void cuda_constant_sub<uint32>(uint32 *d_array, uint32 count, uint32 constant);
 template void cuda_constant_mul<uint32>(uint32 *d_array, uint32 count, uint32 constant);
 
-template void cuda_init_constant<uint>(uint* d_buffer, uint count, uint constant);
-template void cuda_init_constant<float>(float* d_buffer, uint count, float constant);
+template void cuda_init_constant<uint32>(uint32* d_buffer, uint32 count, uint32 constant);
+template void cuda_init_constant<float>(float* d_buffer, uint32 count, float constant);
 
 template void cuda_array_op<cuda_op_add, float> (float *d_dest_array, float *d_other_array, uint32 count);
 template void cuda_array_op<cuda_op_add, uint32> (uint32 *d_dest_array, uint32 *d_other_array, uint32 count);

@@ -86,7 +86,7 @@ void kernel_wrapper_split_small_nodes(const c_kd_node_list& active_list,
 									const c_kd_node_list& next_list, 
 									uint32 *d_in_best_split, 
 									float *d_in_split_cost, 
-									uint *d_out_is_split); 
+									uint32 *d_out_is_split); 
 
 extern "C"
 void kernel_wrapper_gen_ena_from_masks(c_kd_node_list& active_list, const c_kd_node_list& small_roots); 
@@ -526,7 +526,7 @@ void c_kdtree_gpu::preorder_traversal()
 
 	// Now we have the final tree node list. Notify listeners.
 	/*
-	for(uint i=0; i<m_vecListeners.size(); i++)
+	for(uint32 i=0; i<m_vecListeners.size(); i++)
 		m_vecListeners[i]->OnFinalNodeList(m_pListFinal);
 	*/ 
 

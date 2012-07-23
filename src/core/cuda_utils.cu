@@ -44,13 +44,13 @@ __global__ void kernel_scale_vector_array(V *d_vec, uint32 count, S scalar)
 */ 
 // ---------------------------------------------------------------------
 template <class T>
-__global__ void kernel_set_from_address(T* d_array, uint* d_src_addr, T* d_vals, uint count_target)
+__global__ void kernel_set_from_address(T* d_array, uint32* d_src_addr, T* d_vals, uint32 count_target)
 {
-	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if(idx < count_target)
 	{
-		uint addr = d_src_addr[idx];
+		uint32 addr = d_src_addr[idx];
 		T val = {0};
 		if(addr != 0xffffffff)
 			val = d_vals[addr];

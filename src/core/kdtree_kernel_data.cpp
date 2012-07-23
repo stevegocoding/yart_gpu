@@ -20,27 +20,30 @@ void c_kd_node_list::initialize(uint32 _max_nodes, uint32 _max_elems, uint32 _nu
 	// Allocate memory
 
 	// Node sized 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_first_elem_idx, max_nodes*sizeof(uint), "kd-tree node"));
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_num_elems_array, max_nodes*sizeof(uint), "kd-tree node"));
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_node_level, max_nodes*sizeof(uint), "kd-tree node"));
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_split_axis, max_nodes*sizeof(uint), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_first_elem_idx, max_nodes*sizeof(uint32), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_num_elems_array, max_nodes*sizeof(uint32), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_node_level, max_nodes*sizeof(uint32), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_split_axis, max_nodes*sizeof(uint32), "kd-tree node"));
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_split_pos, max_nodes*sizeof(float), "kd-tree node"));
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_child_left, max_nodes*sizeof(uint), "kd-tree node"));
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_child_right, max_nodes*sizeof(uint), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_child_left, max_nodes*sizeof(uint32), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_child_right, max_nodes*sizeof(uint32), "kd-tree node"));
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_aabb_tight_min, max_nodes*sizeof(float4), "kd-tree node", 256));
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_aabb_tight_max, max_nodes*sizeof(float4), "kd-tree node", 256));
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_aabb_inherit_min, max_nodes*sizeof(float4), "kd-tree node", 256));
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_aabb_inherit_max, max_nodes*sizeof(float4), "kd-tree node", 256));
 
 	// Small node
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_small_root_idx, max_nodes*sizeof(uint), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_small_root_idx, max_nodes*sizeof(uint32), "kd-tree node"));
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_elem_mask, max_nodes*sizeof(elem_mask_t), "kd-tree node", 128));
 
 	// Element sized 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_node_elems_list, max_elems*sizeof(uint), "kd-tree node"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_node_elems_list, max_elems*sizeof(uint32), "kd-tree node"));
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_elem_point1, max_elems*sizeof(float4), "kd-tree node"));
 	if(num_elem_points > 1)
 		cuda_safe_call_no_sync(mem_pool.request((void**)&d_elem_point2, max_elems*sizeof(float4), "kd-tree node"));
+
+	
+	cuda_safe_call_no_sync(cudaMemset(d_num_elems_array, 0, max_nodes*sizeof(uint32)))
 }
 
 void c_kd_node_list::append_list(c_kd_node_list *nodes_list, bool append_data)

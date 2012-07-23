@@ -46,7 +46,7 @@ __global__ void kernel_gen_chunks(uint32 *d_num_elems_array, uint32 *d_first_ele
 								uint32 *d_offsets_array, c_kd_chunk_list chunk_list)
 {
 	// 
-	uint node_idx = blockIdx.x * blockDim.x + threadIdx.x;
+	uint32 node_idx = blockIdx.x * blockDim.x + threadIdx.x;
 	
 	if (node_idx < num_nodes)
 	{

@@ -462,9 +462,9 @@ public:
 ///
 ///			where
 ///			\li \c root_idx:		Root node index.
-///			\li \c root_info:		Parent information for root, see below. Takes two \c uint.
+///			\li \c root_info:		Parent information for root, see below. Takes two \c uint32.
 ///			\li \c left_idx:		Index of the left child node.
-///			\li	\c left_info:		Parent information for left child node, see below. Takes two \c uint.
+///			\li	\c left_info:		Parent information for left child node, see below. Takes two \c uint32.
 ///			\li \c left_subtree:	All further nodes in the left subtree.
 ///
 ///			It is important to note that the whole left subtree is stored before the right child 
@@ -482,11 +482,11 @@ public:
 ///
 ///			\par Parent information
 ///			As noted above, inner node representation contains a \em parent \em information. This is
-///			a compressed form of what is needed during traversal. It takes two \c uint, hence two
+///			a compressed form of what is needed during traversal. It takes two \c uint32, hence two
 ///			elements of #d_preorderTree. It is organized the following way:
 ///
 ///			\li First Entry: [MSB] Split axis (2 bits) + Custom bits (2 bits) + Child above address (28 bits) [LSB]
-///			\li Second Entry: Split position (\c float stored as \c uint).
+///			\li Second Entry: Split position (\c float stored as \c uint32).
 ///
 ///			Child above address is 0 for leaf nodes. Else it is the address of the right child
 ///			node in #d_preorderTree. The left child node address is not stored explicitly as it 

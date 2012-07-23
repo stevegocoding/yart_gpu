@@ -42,7 +42,7 @@ public:
 	/// Initializes helper struct from given triangle data.
 	void initialize(const c_triangle_data& td)
 	{
-		for(uint i=0; i<3; i++)
+		for(uint32 i=0; i<3; i++)
 			d_verts[i] = td.d_verts[i];
 		num_tris = td.num_tris;
 	}
@@ -245,11 +245,11 @@ __global__ void kernel_do_split_clipping(kd_tri_node_list next_tri_list, c_kd_ch
 	uint32 chk = CUDA_GRID2DINDEX;
 	uint32 idx = threadIdx.x;
 
-	__shared__ uint s_num_tris_chunk;
-	__shared__ uint s_idx_first_tri;
+	__shared__ uint32 s_num_tris_chunk;
+	__shared__ uint32 s_idx_first_tri;
 	__shared__ float3 s_aabb_node_min;
 	__shared__ float3 s_aabb_node_max;
-	__shared__ uint s_split_axis;
+	__shared__ uint32 s_split_axis;
 	__shared__ float s_split_pos;
 
 	if (threadIdx.x == 0)
