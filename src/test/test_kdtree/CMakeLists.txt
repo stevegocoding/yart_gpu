@@ -37,6 +37,9 @@ target_link_libraries(${TARGET} debug cuda.lib)
 target_link_libraries(${TARGET} optimized cuda.lib)
 target_link_libraries(${TARGET} debug cudart.lib)
 target_link_libraries(${TARGET} optimized cudart.lib)
+target_link_libraries(${TARGET} debug assimp_d.lib)
+target_link_libraries(${TARGET} optimized assimp.lib)
 
 # Installation
 install(TARGETS ${TARGET} RUNTIME DESTINATION bin/${TARGET})
+install(DIRECTORY ${DEP_DLL_DEBUG_DIR} ${DEP_DLL_REL_DIR} DESTINATION bin/${TARGET})

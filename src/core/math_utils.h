@@ -8,8 +8,7 @@
 #include <float.h>
 
 using std::swap;
-using std::sqrt;
-
+using std::sqrt; 
 
 #define M_PI 3.14159265358979323846f
 #define M_INV_PI 0.31830988618379067154f

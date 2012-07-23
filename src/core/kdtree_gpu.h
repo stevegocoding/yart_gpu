@@ -45,7 +45,12 @@ class c_kdtree_gpu
 	
 public:
 
-	c_kdtree_gpu(size_t num_input_elems, uint32 num_elems_points, float3 root_aabb_min, float3 root_aabb_max);
+	c_kdtree_gpu(size_t num_input_elems, 
+				uint32 num_elems_points, 
+				float3 root_aabb_min, 
+				float3 root_aabb_max, 
+				float empty_ratio,
+				uint32 num_small_node_max);
 	
 
 
@@ -71,8 +76,7 @@ public:
 	bool build_tree();
 
 	
-
-protected: 
+protected:  
 
 	// ---------------------------------------------------------------------
 	/*
@@ -144,7 +148,7 @@ protected:
 	float3 m_root_aabb_max;
 
 
-private:
+public: 
 
 	// Implements the large node stage as described in the paper.
 	void large_node_stage();
@@ -165,7 +169,7 @@ private:
 	// along the longest axis.
 	void split_large_nodes(uint32 *d_final_list_index_active);
 
-	void sort_clip_to_nodes();
+	void sort_clip_to_child_nodes();
 	
 	// Updates the small list by removing all small nodes from the next list.  
 	void update_small_list(uint32 *d_final_list_index_active); 

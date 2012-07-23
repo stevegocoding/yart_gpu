@@ -4,13 +4,20 @@
 #include "cuda_utils.h"
 
 extern "C"
-void kernel_kd_generate_tri_aabbs(const c_kd_node_list& root_list, const c_triangle_data &tri_data);
+void kernel_wrapper_gen_tri_aabbs(const c_kd_node_list& root_list, const c_triangle_data &tri_data);
 
 extern "C"
 void kernel_wrapper_do_split_clipping(const c_kd_node_list& active_list, 
 									const c_kd_node_list& next_list,
 									const c_kd_chunk_list& chunks_list,
 									const c_triangle_data& tri_data);
+
+
+c_kdtree_triangle::c_kdtree_triangle(const c_triangle_data& tri_data)
+	: c_kdtree_gpu(tri_data.num_tris, 2, tri_data.aabb_min, tri_data.aabb_max, 0.25f, 64)
+	, m_tri_data(&tri_data)
+{
+}
 
 void c_kdtree_triangle::add_root_node(c_kd_node_list *node_list)
 {
@@ -36,7 +43,7 @@ void c_kdtree_triangle::add_root_node(c_kd_node_list *node_list)
 	// Compute AABBs for all triangles in root node in parallel. This initializes
 	// the d_elemPoint1/2 members of pList.
 	
-	kernel_kd_generate_tri_aabbs(*node_list, *m_tri_data); 
+	kernel_wrapper_gen_tri_aabbs(*node_list, *m_tri_data); 
 } 
 
 void c_kdtree_triangle::perform_split_clipping(c_kd_node_list *parent_list, c_kd_node_list *child_list)

@@ -30,11 +30,12 @@ void initialise()
 	mem_pool.initialise(256*1024*1024, 256*1024);
 
 	triangle_meshes2_array meshes; 
+	c_aabb bounds; 
 	assimp_import_scene(file_name, &ai_scene);
-	assimp_load_meshes2(ai_scene, meshes); 
+	assimp_load_meshes2(ai_scene, meshes, bounds); 
 	assimp_release_scene(ai_scene);
 	
-	scene.reset(new c_scene(meshes));
+	scene.reset(new c_scene(meshes, bounds));
 	
 	init_device_triangle_data(&tri_data, scene.get());
 

@@ -10,7 +10,10 @@ void init_device_triangle_data(c_triangle_data *tri_data, c_scene *scene)
 {
 	assert(tri_data && scene); 
 
+	c_aabb bounds = scene->get_bounds();
 	tri_data->num_tris = scene->get_num_tri_total();
+	tri_data->aabb_min = *(float3*)&bounds.pt_min;
+	tri_data->aabb_max = *(float3*)&bounds.pt_max; 
 	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();  
 	
 	// Request texture memory

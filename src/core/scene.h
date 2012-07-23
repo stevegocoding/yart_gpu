@@ -6,6 +6,8 @@
 #include <vector>
 #include <boost/shared_ptr.hpp>
 
+#include "bounding_box.h"
+
 class c_triangle_mesh; 
 typedef boost::shared_ptr<c_triangle_mesh> triangle_mesh_ptr; 
 typedef std::vector<triangle_mesh_ptr> triangle_meshes_array; 
@@ -18,8 +20,9 @@ class c_scene
 {
 	
 public:
-	c_scene(triangle_meshes2_array& meshes)
+	c_scene(triangle_meshes2_array& meshes, const c_aabb& bounds)
 		: m_meshes(meshes) 
+		, m_bounds(bounds)
 	{} 
 
 	size_t get_num_meshes() const 
@@ -35,8 +38,12 @@ public:
 
 	size_t get_num_tri_total() const; 
 
+	const c_aabb& get_bounds() const { return m_bounds; }
+
 private:
 	triangle_meshes2_array m_meshes; 
+
+	c_aabb m_bounds; 
 	
 };
 

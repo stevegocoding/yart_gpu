@@ -139,7 +139,7 @@ public:
 		: m_num_elems(num_elems)
 	{
 		c_cuda_mem_pool& pool = c_cuda_mem_pool::get_instance(); 
-		pool.request((void**)&d_buffer, num_elems*sizeof(T), cat, alignment);
+		cuda_safe_call_no_sync(pool.request((void**)&d_buffer, num_elems*sizeof(T), cat, alignment));
 	}
 	
 	~c_cuda_memory() 
@@ -147,10 +147,8 @@ public:
 		c_cuda_mem_pool& pool = c_cuda_mem_pool::get_instance(); 
 		cuda_safe_call_no_sync(pool.release(d_buffer));
 	}
-
-	T* get_buf_ptr() const { return d_buffer; }
-
-	T* get_writable_buf_ptr() { return d_buffer; }
+	
+	T* buf_ptr() { return d_buffer; }
 
 	T read(size_t idx)
 	{

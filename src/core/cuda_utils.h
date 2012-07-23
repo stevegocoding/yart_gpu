@@ -182,6 +182,8 @@ template <typename T>
 void cuda_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
 template <typename T> 
 void cuda_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
+template <typename T, e_cuda_op op> 
+void cuda_segmented_reduce(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
 
 template <typename T> 
 void cuda_scan(T *d_data, size_t num_elems, bool is_inclusive, T *d_out);

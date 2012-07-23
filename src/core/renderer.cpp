@@ -99,23 +99,23 @@ uint32 c_renderer::trace_rays(c_ray_chunk *ray_chunk, c_shading_points_array *sp
 	c_cuda_memory<uint32> d_is_valid(ray_chunk->num_rays);
 	
 	// Perform Tracing 
-	launch_kernel_trace_rays(*ray_chunk, *sp_shading, d_is_valid.get_writable_buf_ptr());
+	launch_kernel_trace_rays(*ray_chunk, *sp_shading, d_is_valid.buf_ptr());
 	
 	uint32 traced = ray_chunk->num_rays;
 
 	// Compact shading points and ray chunk to avoid rays that hit nothing.
 	if (d_out_src_addr)
 	{
-		uint32 new_count = cuda_gen_compact_addresses(d_is_valid.get_buf_ptr(), sp_shading->num_pts, d_out_src_addr);
+		uint32 new_count = cuda_gen_compact_addresses(d_is_valid.buf_ptr(), sp_shading->num_pts, d_out_src_addr);
 		sp_shading->compact_src_addr(d_out_src_addr, new_count);
 		ray_chunk->compact_src_addr(d_out_src_addr, new_count);
 	}
 	else 
 	{
 		c_cuda_memory<uint32> d_src_addr(sp_shading->num_pts);
-		uint32 new_count = cuda_gen_compact_addresses(d_is_valid.get_buf_ptr(), sp_shading->num_pts, d_src_addr.get_writable_buf_ptr());
-		sp_shading->compact_src_addr(d_src_addr.get_buf_ptr(), new_count);
-		ray_chunk->compact_src_addr(d_src_addr.get_buf_ptr(), new_count);
+		uint32 new_count = cuda_gen_compact_addresses(d_is_valid.buf_ptr(), sp_shading->num_pts, d_src_addr.buf_ptr());
+		sp_shading->compact_src_addr(d_src_addr.buf_ptr(), new_count);
+		ray_chunk->compact_src_addr(d_src_addr.buf_ptr(), new_count);
 	}
 	
 	/*

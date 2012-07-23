@@ -329,7 +329,7 @@ __global__ void kernel_do_split_clipping(kd_tri_node_list next_tri_list, c_kd_ch
 }
  
 extern "C"
-void kernel_kd_generate_tri_aabbs(const c_kd_node_list& root_list, const c_triangle_data &tri_data)
+void kernel_wrapper_gen_tri_aabbs(const c_kd_node_list& root_list, const c_triangle_data &tri_data)
 { 
 	dim3 block_size = dim3(256, 1, 1);
 	dim3 grid_size = dim3(CUDA_DIVUP(tri_data.num_tris, block_size.x), 1, 1);
@@ -342,7 +342,7 @@ void kernel_kd_generate_tri_aabbs(const c_kd_node_list& root_list, const c_trian
 	
 	// Generate AABBs using kernel 
 	kernel_gen_tris_aabb<<<grid_size, block_size>>>(node_tri_list, verts_data);
-
+	
 }
 
 extern "C"

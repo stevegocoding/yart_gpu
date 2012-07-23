@@ -4,7 +4,7 @@ c_triangle_mesh::c_triangle_mesh(const vertices_array& verts,
 	const normals_array& normals, 
 	const tangents_array& tangents, 
 	const uvs_array& uvs, 
-	const face_indices_array& indices)
+	const face_indices_array& indices) 
 {
 	assert(verts.size() > 0); 
 	assert(indices.size() > 0);

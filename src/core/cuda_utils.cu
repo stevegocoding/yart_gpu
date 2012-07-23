@@ -11,6 +11,7 @@
 #include "thrust/reduce.h"
 #include "thrust/gather.h"
 #include "thrust/count.h"
+#include "thrust/scan.h"
 
  
 // ---------------------------------------------------------------------
@@ -26,7 +27,8 @@ __global__ void kernel_scale_vector_array(V *d_vec, uint32 count, S scalar)
 	
 	if (tid < count)
 		d_vec[tid] *= scalar; 
-}
+} 
+
 
 // ---------------------------------------------------------------------
 /*
@@ -169,7 +171,7 @@ void kernel_wrapper_set_at_address(T *d_array, uint32 *d_address, T *d_vals, uin
 	dim3 block_size = dim3(256, 1, 1); 
 	dim3 grid_size = dim3(CUDA_DIVUP(count_vals, block_size.x), 1, 1);
 
-	kernel_set_at_address(d_array, d_address, d_vals, count_vals); 
+	kernel_set_at_address<<<grid_size, block_size>>>(d_array, d_address, d_vals, count_vals); 
 }
 
 extern "C"
@@ -272,7 +274,7 @@ void device_segmented_reduce_add(T *d_data, uint32 *d_owner, uint32 count, T ide
 	thrust::device_ptr<uint32> d_keys_ptr = thrust::device_pointer_cast<uint32>(d_owner); 
 	thrust::device_ptr<T> d_data_ptr = thrust::device_pointer_cast<T>(d_data);
 	thrust::device_ptr<T> d_result_ptr = thrust::device_pointer_cast<T>(d_result);
-	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.get_writable_buf_ptr());  
+	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.buf_ptr());  
 
 	thrust::reduce_by_key(d_keys_ptr, d_keys_ptr+count, d_data_ptr, d_keys_output_ptr, d_result_ptr, thrust::equal_to<uint32>(), op_add<T>());
 }
@@ -286,7 +288,7 @@ void device_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T ide
 	thrust::device_ptr<uint32> d_keys_ptr = thrust::device_pointer_cast<uint32>(d_owner); 
 	thrust::device_ptr<T> d_data_ptr = thrust::device_pointer_cast<T>(d_data);
 	thrust::device_ptr<T> d_result_ptr = thrust::device_pointer_cast<T>(d_result);
-	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.get_writable_buf_ptr());  
+	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.buf_ptr());  
 	
 	thrust::reduce_by_key(d_keys_ptr, d_keys_ptr+count, d_data_ptr, d_keys_output_ptr, d_result_ptr, thrust::equal_to<uint32>(), op_minimum<T>());
 }
@@ -300,11 +302,35 @@ void device_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T ide
 	thrust::device_ptr<uint32> d_keys_ptr = thrust::device_pointer_cast<uint32>(d_owner); 
 	thrust::device_ptr<T> d_data_ptr = thrust::device_pointer_cast<T>(d_data);
 	thrust::device_ptr<T> d_result_ptr = thrust::device_pointer_cast<T>(d_result);
-	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.get_writable_buf_ptr());  
+	thrust::device_ptr<uint32> d_keys_output_ptr = thrust::device_pointer_cast<uint32>(d_keys_output.buf_ptr());  
 
 	thrust::reduce_by_key(d_keys_ptr, d_keys_ptr+count, d_data_ptr, d_keys_output_ptr, d_result_ptr, thrust::equal_to<uint32>(), op_maximum<T>());
 }
 
+extern "C++"
+template <typename T, e_cuda_op op> 
+void kernel_wrapper_segmented_reduce(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	
+	
+}
+
+
+extern "C++"
+template <typename T> 
+void device_scan(T *d_data, size_t num_elems, bool is_inclusive, T *d_out)
+{
+	thrust::device_ptr<T> d_data_ptr = thrust::device_pointer_cast<T>(d_data); 
+	thrust::device_ptr<T> d_out_ptr = thrust::device_pointer_cast<T>(d_out); 
+	if (is_inclusive)
+	{
+		thrust::inclusive_scan(d_data_ptr, d_data_ptr+num_elems, d_out_ptr); 
+	}
+	else
+	{
+		thrust::exclusive_scan(d_data_ptr, d_data_ptr+num_elems, d_out_ptr);
+	}
+}
 
 extern "C"
 void kernel_wrapper_align_counts(uint32 *d_out_aligned, uint32 *d_counts, uint32 count)
@@ -350,8 +376,26 @@ template void device_segmented_reduce_max<float>(float *d_data, uint32 *d_owner,
 template void device_segmented_reduce_max<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
 template void device_segmented_reduce_max<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
 
+template void device_scan<uint32>(uint32 *d_data, size_t num_elems, bool is_inclusive, uint32 *d_out); 
 
 template void kernel_wrapper_set_from_address<uint32>(uint32 *d_array, uint32 *d_src_addr, uint32 *d_vals, uint32 count_target);
+template void kernel_wrapper_set_from_address<unsigned long long>(unsigned long long *d_array, uint32 *d_src_addr, unsigned long long *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<float>(float *d_array, uint32 *d_src_addr, float *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<float2>(float2 *d_array, uint32 *d_src_addr, float2 *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<float4>(float4 *d_array, uint32 *d_src_addr, float4 *d_vals, uint32 count_target);
+
+extern "C++" template void kernel_wrapper_set_at_address<uint32>(uint32 *d_array, uint32 *d_address, uint32 *d_vals, uint32 count_vals); 
+extern "C++" template void kernel_wrapper_set_at_address<float>(float *d_array, uint32 *d_address, float *d_vals, uint32 count_vals); 
+
+
+extern "C++" template void kernel_wrapper_init_constant<uint32>(uint32 *d_buffer, uint32 count, uint32 constant);
+extern "C++" template void kernel_wrapper_init_constant<float>(float *d_buffer, uint32 count, float constant);
+
+extern "C++"template void device_array_op<cuda_op_add, float>(float *d_dest_array, float *d_other_array, uint32 count);
+extern "C++"template void device_array_op<cuda_op_sub, float>(float *d_dest_array, float *d_other_array, uint32 count);
+extern "C++"template void device_array_op<cuda_op_mul, float>(float *d_dest_array, float *d_other_array, uint32 count);
+extern "C++"template void device_array_op<cuda_op_div, float>(float *d_dest_array, float *d_other_array, uint32 count);
+extern "C++"template void device_array_op<cuda_op_add, uint32>(uint32 *d_dest_array, uint32 *d_other_array, uint32 count);
+extern "C++"template void device_array_op<cuda_op_sub, uint32>(uint32 *d_dest_array, uint32 *d_other_array, uint32 count);
+extern "C++"template void device_array_op<cuda_op_mul, uint32>(uint32 *d_dest_array, uint32 *d_other_array, uint32 count);
+extern "C++"template void device_array_op<cuda_op_div, uint32>(uint32 *d_dest_array, uint32 *d_other_array, uint32 count);

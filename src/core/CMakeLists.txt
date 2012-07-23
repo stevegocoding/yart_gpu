@@ -22,6 +22,8 @@ set(CUDA_MT_FILES
 set(CORE_FILES
 	assimp_loader.cpp
 	assimp_loader.h
+	bounding_box.cpp
+	bounding_box.h
 	camera.cpp
 	camera.h
 	cuda_defs.h
@@ -31,6 +33,8 @@ set(CORE_FILES
 	cuda_rng.h
 	cuda_utils.cpp
 	cuda_utils.h
+	kdtree_debug.cpp
+	kdtree_debug.h
 	kdtree_gpu.cpp
 	kdtree_gpu.h
 	kdtree_kernel_data.cpp

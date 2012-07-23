@@ -8,6 +8,7 @@
 #include <boost/shared_array.hpp>
 #include "vector3f.h"
 #include "point3f.h"
+#include "bounding_box.h"
 
 struct uv
 {
@@ -77,6 +78,7 @@ private:
 	bool m_has_tangent; 
 	bool m_has_uv;
 
+	
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -114,7 +116,7 @@ public:
 	{
 		return m_has_uv;
 	}
-
+		
 private:
 	
 	// Triangle vertex arrays, stored as three arrays of #m_numTris points each.
@@ -132,7 +134,7 @@ private:
 
 	bool m_has_normal;
 	bool m_has_tangent; 
-	bool m_has_uv;	
+	bool m_has_uv;  
 };
 
 

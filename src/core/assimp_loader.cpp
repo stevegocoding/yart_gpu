@@ -96,7 +96,7 @@ void print_mesh(std::ostream& os, triangle_mesh2_ptr mesh)
 	} 
 }
 
-size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes)
+size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes, c_aabb& out_bounds)
 {
 	std::ofstream ofs("mesh_debug.txt");
 	
@@ -148,6 +148,19 @@ size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes)
 		meshes.push_back(mesh); 
 
 		print_mesh(ofs, mesh);
+	}
+
+	// Calculate the bounding box
+	for (size_t i = 0; i < scene->mNumMeshes; ++i)
+	{
+		aiMesh *mesh = scene->mMeshes[i];
+		c_aabb mesh_bounds;
+		for (unsigned int v = 0; v < mesh->mNumVertices; ++v)
+		{
+			c_point3f pt = *(c_point3f*)&mesh->mVertices[v]; 
+			mesh_bounds = union_aabb(mesh_bounds, pt);
+		}
+		out_bounds = union_aabb(out_bounds, mesh_bounds); 
 	}
 
 	return scene->mNumMeshes;
@@ -217,4 +230,14 @@ void assimp_release_scene(const aiScene *scene)
 	assert(scene);
 
 	aiReleaseImport(scene); 
+}
+
+
+void assimp_calc_bounds(const aiMesh *mesh, c_aabb& out_bounds)
+{
+	for (unsigned int v = 0; v < mesh->mNumVertices; ++v)
+	{
+		c_point3f pt = *(c_point3f*)&mesh->mVertices[v]; 
+		out_bounds = union_aabb(out_bounds, pt);
+	}
 }

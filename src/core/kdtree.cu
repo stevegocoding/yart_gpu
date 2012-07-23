@@ -5,6 +5,13 @@
 #include "functor_device.h"
 #include "cuda_rng.h"
 
+#include "kdtree_debug.h"
+
+
+extern std::ofstream chunk_ofs; 
+extern std::ofstream active_ofs; 
+extern std::ofstream others_ofs; 
+
 /// \brief	kd-tree traverse cost. Used to stop the splitting at some point where traversal would
 ///			lead to a higher cost than splitting a given node.
 #define KD_COST_TRAVERSE	3.0f
@@ -13,7 +20,9 @@ cudaDeviceProp device_props;
 
 __constant__ float k_empty_space_ratio; 
 __constant__ uint32 k_small_node_max; 
-__constant__ float k_max_query_radius; 
+__constant__ float k_max_query_radius;
+
+
 
 // ---------------------------------------------------------------------
 /*
@@ -62,7 +71,6 @@ struct kd_node_list_aabb
 	
 };
 
-
 struct kd_small_node_list
 { 
 	uint32 num_nodes; 
@@ -101,7 +109,7 @@ struct kd_ena_node_list
 	elem_mask_t *d_elem_marks;
 	
 	uint32 *d_elem_node_assoc; 
-};
+}; 
 
 // ---------------------------------------------------------------------
 /*
@@ -152,8 +160,8 @@ inline __device__ void device_create_child(kd_node_list_aabb& next_list, uint32 
 											float aabb_min[3], float aabb_max[3], uint32 node_level)
 {
 	next_list.d_node_level[idx_new] = node_level;
-	next_list.d_aabb_inherit_max[idx_new] = make_float4(aabb_min[0], aabb_min[1], aabb_min[3], 0.0f);
-	next_list.d_aabb_inherit_min[idx_new] = make_float4(aabb_max[0], aabb_max[1], aabb_max[3], 0.0f); 
+	next_list.d_aabb_inherit_min[idx_new] = make_float4(aabb_min[0], aabb_min[1], aabb_min[2], 0.0f);
+	next_list.d_aabb_inherit_max[idx_new] = make_float4(aabb_max[0], aabb_max[1], aabb_max[2], 0.0f); 
 }
 
 // ---------------------------------------------------------------------
@@ -169,7 +177,7 @@ inline __device__ void device_create_child(kd_node_list_aabb& next_list, uint32 
 template <uint32 num_elems_pts>
 __global__ void kernel_gen_chunk_aabb(c_kd_node_list node_list, c_kd_chunk_list chunk_list)
 {
-	uint32 chk = CUDA_GRID2DINDEX;
+	uint32 chk = CUDA_GRID2DINDEX;		// Global block index
 
 	__shared__ uint32 s_num_elems;
 	__shared__ uint32 s_first_elem_idx; 
@@ -399,7 +407,7 @@ __global__ void kernel_mark_left_right_elems(c_kd_node_list active_list,
 		bool is_left = false; 
 		bool is_right = false; 
 
-		if (num_elem_pts == 2)
+		if (num_elem_pts == 2)	// Compile Time 
 		{
 			// Get bounds
 			float bounds_min = ((float*)&active_list.d_elem_point1[idx_tna])[s_split_axis];
@@ -436,12 +444,12 @@ __global__ void kernel_mark_left_right_elems(c_kd_node_list active_list,
 			}
 		}
 		
-		// left 
+		// left child
 		d_out_valid[s_idx_first_elem + idx] = (is_left ? 1 : 0);
+		
+		// right child
 		d_out_valid[active_list.next_free_pos + s_idx_first_elem + idx] = (is_right ? 1 : 0);
 	}
-	
-	
 }
 
 // ---------------------------------------------------------------------
@@ -573,8 +581,18 @@ __global__ void kernel_split_large_nodes(const c_kd_node_list active_list, kd_no
 				aabb_max_inherit.z - aabb_min_inherit.z > aabb_max_inherit.y - aabb_min_inherit.y) 
 				longest = 2; 
 
+		float aabb_min_child[3] = {aabb_min_inherit.x, aabb_min_inherit.y, aabb_min_inherit.z};
+		float aabb_max_child[3] = {aabb_max_inherit.x, aabb_max_inherit.y, aabb_max_inherit.z}; 
+		
+		float v1 = aabb_min_child[longest]; 
+		float v2 = aabb_max_child[longest];
+		float v3 = aabb_max_child[longest]-aabb_min_child[longest]; 
+		float v4 = 0.5f * v3; 
+		float v5 = v4 + v1;  
+		float split_pos = v1 + .5f * v3; 
+		
 		// Split position 
-		float split_pos = ((float*)&aabb_min_inherit)[longest] + 0.5f * ( ((float*)&aabb_max_inherit)[longest] - ((float*)&aabb_min_inherit)[longest] );
+		// float split_pos = ((float*)&aabb_min_inherit)[longest] + 0.5f * ( ((float*)&aabb_max_inherit)[longest] - ((float*)&aabb_min_inherit)[longest] );
 		
 		// Store split information
 		active_list.d_split_axis[idx] = longest;
@@ -583,9 +601,7 @@ __global__ void kernel_split_large_nodes(const c_kd_node_list active_list, kd_no
 		uint32 old_level = active_list.d_node_level[idx];
 		
 		// Add the two children for spatial median split.
-		float aabb_min_child[3] = {aabb_min_inherit.x, aabb_min_inherit.y, aabb_min_inherit.z};
-		float aabb_max_child[3] = {aabb_max_inherit.x, aabb_max_inherit.y, aabb_max_inherit.z}; 
-		
+ 
 		// Below node 
 		uint32 idx_write = idx;
 		aabb_max_child[longest] = split_pos;
@@ -1370,6 +1386,14 @@ void init_kd_kernels()
 	cuda_safe_call_no_sync(cudaGetDeviceProperties(&device_props, cur_device));
 }
 
+extern "C" 
+void kernel_set_kd_params(uint32 small_node_max)
+{
+	assert(small_node_max <= KD_SMALL_NODE_MAX);
+	
+	cuda_safe_call_no_sync(cudaMemcpyToSymbol("k_small_node_max", &small_node_max, sizeof(uint32)));
+}
+
 extern "C++"
 template <uint32 num_elem_pts> 
 void kernel_wrapper_gen_chunk_aabb(const c_kd_node_list& active_list, c_kd_chunk_list& chunks_list)
@@ -1380,6 +1404,7 @@ void kernel_wrapper_gen_chunk_aabb(const c_kd_node_list& active_list, c_kd_chunk
 	dim3 grid_size = CUDA_MAKEGRID2D(chunks_list.num_chunks, device_props.maxGridSize[0]);
 	
 	kernel_gen_chunk_aabb<num_elem_pts><<<grid_size, block_size>>>(active_list, chunks_list);
+	CUDA_CHECKERROR;
 }
 
 extern "C"
@@ -1402,14 +1427,17 @@ void kernel_wrappper_empty_space_cutting(c_kd_node_list& active_list,
 		for (uint32 axis = 0; axis < 3; ++axis)
 		{
 			bool bmax = (is_max == 1);
-			kernel_can_cutoff_empty_space<<<grid_size, block_size>>>(active_list, axis, bmax, d_can_cutoff.get_writable_buf_ptr());
+			kernel_can_cutoff_empty_space<<<grid_size, block_size>>>(active_list, axis, bmax, d_can_cutoff.buf_ptr());
 			CUDA_CHECKERROR; 
 
-			cuda_scan(d_can_cutoff.get_buf_ptr(), active_list.num_nodes, false, d_cut_offsets.get_writable_buf_ptr());
+			cuda_scan(d_can_cutoff.buf_ptr(), active_list.num_nodes, false, d_cut_offsets.buf_ptr());
 			
 			// Get number of cuts by reduction.
 			uint32 num_cuts;
-			cuda_reduce_add(num_cuts, (uint32*)d_can_cutoff.get_buf_ptr(), active_list.num_nodes, (uint32)0);
+			cuda_reduce_add(num_cuts, (uint32*)d_can_cutoff.buf_ptr(), active_list.num_nodes, (uint32)0);
+			
+			others_ofs << "Axis " << axis << " " << "is max? " << is_max << std::endl; 
+			print_device_array(others_ofs, d_can_cutoff.buf_ptr(), active_list.num_nodes); 
 			
 			if (num_cuts > 0)
 			{
@@ -1418,7 +1446,13 @@ void kernel_wrappper_empty_space_cutting(c_kd_node_list& active_list,
 					final_list.resize_node_data(final_list.num_nodes + 2*num_cuts);
 
 				// Perform cut and generate new final list nodes and update active list nodes.
-				kernel_empty_space_cutting<<<grid_size, block_size>>>(active_list, final_list, axis, bmax, d_can_cutoff.get_writable_buf_ptr(), d_cut_offsets.get_writable_buf_ptr(), num_cuts, d_io_final_list_idx);
+				kernel_empty_space_cutting<<<grid_size, block_size>>>(active_list, final_list, 
+																	axis, 
+																	bmax, 
+																	d_can_cutoff.buf_ptr(), 
+																	d_cut_offsets.buf_ptr(), 
+																	num_cuts, 
+																	d_io_final_list_idx);
 				CUDA_CHECKERROR;
 				
 				// Update final list node count. It increases by 2*numCuts since we both had to create
@@ -1454,9 +1488,9 @@ void kernel_wrapper_mark_left_right_elems(const c_kd_node_list& active_list, con
 	uint32 num_rands = rng.get_aligned_cnt(chunks_list.num_chunks*KD_CHUNKSIZE);
 	c_cuda_memory<float> d_randoms(num_rands);
 	rng.seed(rand());
-	cuda_safe_call_no_sync(rng.gen_rand(d_randoms.get_writable_buf_ptr(), num_rands));
+	cuda_safe_call_no_sync(rng.gen_rand(d_randoms.buf_ptr(), num_rands));
 	
-	kernel_mark_left_right_elems<num_elem_pts><<<grid_size, block_size>>>(active_list, chunks_list, d_randoms.get_buf_ptr(), d_valid); 
+	kernel_mark_left_right_elems<num_elem_pts><<<grid_size, block_size>>>(active_list, chunks_list, d_randoms.buf_ptr(), d_valid); 
 }
 
 
@@ -1556,14 +1590,14 @@ void kernel_wrapper_init_split_masks(const c_kd_node_list& small_list, uint32 sm
 	uint32 num_rands = rng.get_aligned_cnt(small_list.next_free_pos); 
 	c_cuda_memory<float> d_rands(num_rands); 
 	rng.seed(rand());
-	cuda_safe_call_no_sync(rng.gen_rand(d_rands.get_writable_buf_ptr(), num_rands)); 
+	cuda_safe_call_no_sync(rng.gen_rand(d_rands.buf_ptr(), num_rands)); 
 
 	// Minimums / Single point
-	kernel_init_split_masks<0, num_elem_pts><<<grid_size, block_size>>>(small_list, d_rands.get_buf_ptr(), split_list);
+	kernel_init_split_masks<0, num_elem_pts><<<grid_size, block_size>>>(small_list, d_rands.buf_ptr(), split_list);
 
 	if (num_elem_pts == 2)
 	{
-		kernel_init_split_masks<1, num_elem_pts><<<grid_size, block_size>>>(small_list, d_rands.get_buf_ptr(), split_list);
+		kernel_init_split_masks<1, num_elem_pts><<<grid_size, block_size>>>(small_list, d_rands.buf_ptr(), split_list);
 	}
 }
 
@@ -1687,5 +1721,23 @@ void kernel_wrapper_traversal_down_path(const c_kd_final_node_list& final_list,
 extern "C++" template void kernel_wrapper_gen_chunk_aabb<1>(const c_kd_node_list& active_list, c_kd_chunk_list& chunks_list);
 extern "C++" template void kernel_wrapper_gen_chunk_aabb<2>(const c_kd_node_list& active_list, c_kd_chunk_list& chunks_list);
 
+extern "C++" template void kernel_wrapper_init_split_masks<1>(const c_kd_node_list& small_list, uint32 small_node_max, c_kd_split_list& split_list); 
+extern "C++" template void kernel_wrapper_init_split_masks<2>(const c_kd_node_list& small_list, uint32 small_node_max, c_kd_split_list& split_list); 
+
+extern "C++" template void kernel_wrapper_create_split_candidates<1>(const c_kd_node_list& small_list, c_kd_split_list& split_list);
+extern "C++" template void kernel_wrapper_create_split_candidates<2>(const c_kd_node_list& small_list, c_kd_split_list& split_list);
+
 extern "C++" template void kernel_wrapper_mark_left_right_elems<1>(const c_kd_node_list& active_list, const c_kd_chunk_list& chunks_list, uint32 *d_valid);
 extern "C++" template void kernel_wrapper_mark_left_right_elems<2>(const c_kd_node_list& active_list, const c_kd_chunk_list& chunks_list, uint32 *d_valid);
+
+extern "C++" template void kernel_wrapper_find_best_split<1>(const c_kd_node_list& active_list, 
+															const c_kd_split_list& split_list, 
+															float max_query_radius, 
+															uint32 *d_out_best_split, 
+															float *d_out_split_cost);
+
+extern "C++" template void kernel_wrapper_find_best_split<2>(const c_kd_node_list& active_list, 
+															const c_kd_split_list& split_list, 
+															float max_query_radius, 
+															uint32 *d_out_best_split, 
+															float *d_out_split_cost);

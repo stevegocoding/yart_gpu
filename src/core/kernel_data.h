@@ -28,18 +28,20 @@ class c_scene;
 struct c_triangle_data
 {
 #ifdef __cplusplus
+	
 	/*
 	c_triangle_data()
 	{
 		for (uint32 i = 0; i < 3; ++i)
 		{
 			d_verts[i] = NULL; 
-			d_normals[i] = NULL; 
+			//d_normals[i] = NULL; 
 		}
-		d_material_idx = NULL;
-		d_texcoords[0] = d_texcoords[1] = NULL;
+		//d_material_idx = NULL;
+		//d_texcoords[0] = d_texcoords[1] = NULL;
 	}
-	*/
+	*/ 
+	
 #endif 
 
 	uint32 num_tris; 

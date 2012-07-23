@@ -5,16 +5,18 @@
 
 #include "kdtree_gpu.h"
 
-
-
 struct c_triangle_data;
 class c_kdtree_triangle : public c_kdtree_gpu
 {
-	
+public:
+	c_kdtree_triangle(const c_triangle_data& tri_data); 
+
+	// For DEBUG 
+	c_kd_chunk_list* get_chunks_list() const { return m_chunk_list; }
+	c_kd_node_list* get_active_list() const { return m_active_node_list; } 
 
 protected:
 	
-
 	// ---------------------------------------------------------------------
 	/*
 	/// \brief	Adds the root node to the given node list.
@@ -37,10 +39,9 @@ protected:
 	*/ 
 	// ---------------------------------------------------------------------
 	virtual void perform_split_clipping(c_kd_node_list *parent_list, c_kd_node_list *child_list);
-	
-private:
-	
-	c_triangle_data *m_tri_data;
+
+private: 
+	const c_triangle_data *m_tri_data;
 };
 
 #endif // __kdtree_triangle_h__

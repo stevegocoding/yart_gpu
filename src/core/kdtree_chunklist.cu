@@ -101,9 +101,7 @@ __global__ void kernel_count_elems_chunk(c_kd_chunk_list chunks_list, uint32 *d_
 	uint32 res = device_reduce_fast<uint32, KD_CHUNKSIZE, op_add<uint32>>(s_mem);
 	
 	if (threadIdx.x == 0)
-		d_out_num_elems[chk] = res;
-	
-	
+		d_out_num_elems[chk] = res; 
 }
 
 //////////////////////////////////////////////////////////////////////////

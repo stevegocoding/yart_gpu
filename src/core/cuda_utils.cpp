@@ -72,11 +72,28 @@ void device_reduce_max(T& result, T *d_in, size_t count, T init);
 
 extern "C++"
 template <typename T>
+void device_segmented_reduce_add(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
+
+extern "C++"
+template <typename T>
 void device_segmented_reduce_min(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
 
 extern "C++"
 template <typename T>
 void device_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments);
+
+extern "C++"
+template <typename T, e_cuda_op op> 
+void kernel_wrapper_segmented_reduce(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments); 
+
+// ---------------------------------------------------------------------
+/* 
+	Scan 
+*/ 
+// ---------------------------------------------------------------------
+extern "C++"
+template <typename T> 
+void device_scan(T *d_data, size_t num_elems, bool is_inclusive, T *d_out); 
 
 // ---------------------------------------------------------------------
 /*
@@ -120,7 +137,10 @@ uint32 cuda_resize_mem(T **d_buffer, uint32 num_old, uint32 num_requested, uint3
 	// Copy content of old buffers into new buffers. Slice by slice as there might be holes
 	// at the end of a slice.
 	for (uint32 s = 0; s < slices; ++s)
-		cuda_safe_call_no_sync(cudaMemcpy(d_new_buffer + s*num_new, *d_buffer + s*num_old, num_old*sizeof(T), cudaMemcpyDeviceToDevice));
+		cuda_safe_call_no_sync(cudaMemcpy(d_new_buffer + s*num_new, 
+										*d_buffer + s*num_old, 
+										num_old*sizeof(T), 
+										cudaMemcpyDeviceToDevice));
 
 	// Free old buffer
 	cuda_safe_call_no_sync(mem_pool.release(*d_buffer));
@@ -191,9 +211,17 @@ void cuda_compact_in_place(T *d_data, uint32 *d_src_addr, uint32 old_count, uint
 	
 	// Move data into temp buffer.
 	c_cuda_memory<T> d_temp_buf(old_count); 
-	cuda_safe_call_no_sync(cudaMemcpy(d_temp_buf.get_writable_buf_ptr(), d_data, old_count*sizeof(T), cudaMemcpyDeviceToDevice));
+	cuda_safe_call_no_sync(cudaMemcpy(d_temp_buf.buf_ptr(), d_data, old_count*sizeof(T), cudaMemcpyDeviceToDevice));
 
-	cuda_set_from_address(d_data, d_src_addr, (T*)d_temp_buf.get_buf_ptr(), new_count); 
+	cuda_set_from_address(d_data, d_src_addr, (T*)d_temp_buf.buf_ptr(), new_count); 
+}
+
+
+template <typename T>
+void cuda_scan(T *d_data, size_t num_elems, bool is_inclusive, T *d_out)
+{
+	assert(d_data && d_out && num_elems > 0);
+	device_scan(d_data, num_elems, is_inclusive, d_out); 
 }
 
 template <typename T> 
@@ -214,7 +242,7 @@ template <typename T>
 void cuda_segmented_reduce_add(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
 {
 	assert(d_data && d_owner && d_result && count > 0 && num_segments > 0);
-	
+	device_segmented_reduce_add(d_data, d_owner, count, identity, d_result, num_segments); 
 }
 
 template <typename T> 
@@ -231,14 +259,31 @@ void cuda_segmented_reduce_max(T *d_data, uint32 *d_owner, uint32 count, T ident
 	device_segmented_reduce_max<T>(d_data, d_owner, count, identity, d_result, num_segments);
 } 
 
+template <typename T, e_cuda_op op> 
+void cuda_segmented_reduce(T *d_data, uint32 *d_owner, uint32 count, T identity, T *d_result, uint32 num_segments)
+{
+	assert(d_data && d_owner && d_result && count > 0 && num_segments > 0);
+
+	if (count == 1)
+	{
+		cuda_safe_call_no_sync(cudaMemcpy(d_result, d_data, sizeof(T), cudaMemcpyDeviceToDevice));
+	}
+	else
+	{
+		cuda_init_constant(d_result, num_segments, identity); 
+		
+		kernel_wrapper_segmented_reduce<T, op>(d_data, d_owner, count, identity, d_result, num_segments); 
+	}
+}
+
 uint32 cuda_gen_compact_addresses(uint32 *d_is_valid, uint32 old_count, uint32 *d_out_src_addr)
 {
 	c_cuda_memory<uint32> d_new_count(1);
 	c_cuda_memory<uint32> d_identity(old_count);
 
 	// Compact indices array
-	cuda_init_identity(d_identity.get_writable_buf_ptr(), old_count);
-	device_compact(d_identity.get_buf_ptr(), d_is_valid, old_count, d_out_src_addr, d_new_count.get_writable_buf_ptr());
+	cuda_init_identity(d_identity.buf_ptr(), old_count);
+	device_compact(d_identity.buf_ptr(), d_is_valid, old_count, d_out_src_addr, d_new_count.buf_ptr());
 
 	uint32 new_count = d_new_count.read(0);
 	
@@ -314,6 +359,11 @@ template void cuda_set_from_address<uint32>(uint32 *d_array, uint32 *d_src_addr,
 template void cuda_set_from_address<float>(float *d_array, uint32 *d_src_addr, float *d_vals, uint32 count_target);
 template void cuda_set_from_address<float2>(float2 *d_array, uint32 *d_src_addr, float2 *d_vals, uint32 count_target);
 template void cuda_set_from_address<float4>(float4 *d_array, uint32 *d_src_addr, float4 *d_vals, uint32 count_target);
+template void cuda_set_from_address<unsigned long long>(unsigned long long *d_array, uint32 *d_src_addr, unsigned long long *d_vals, uint32 count_target);
+
+template void cuda_set_at_address<uint32>(uint32 *d_array, uint32 *d_address, uint32 *d_vals, uint32 count_vals);
+template void cuda_set_at_address<float>(float *d_array, uint32 *d_address, float *d_vals, uint32 count_vals);
+
 
 template void cuda_compact_in_place<uint32>(uint32 *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
 template void cuda_compact_in_place<float>(float *d_data, uint32 *d_src_addr, uint32 old_count, uint32 new_count);
@@ -336,3 +386,5 @@ template void cuda_segmented_reduce_max<uint32>(uint32 *d_data, uint32 *d_owner,
 template void cuda_segmented_reduce_add<float>(float *d_data, uint32 *d_owner, uint32 count, float identity, float *d_result, uint32 num_segments);
 template void cuda_segmented_reduce_add<float4>(float4 *d_data, uint32 *d_owner, uint32 count, float4 identity, float4 *d_result, uint32 num_segments);
 template void cuda_segmented_reduce_add<uint32>(uint32 *d_data, uint32 *d_owner, uint32 count, uint32 identity, uint32 *d_result, uint32 num_segments);
+
+template void cuda_scan<uint32>(uint32 *d_data, size_t num_elems, bool is_inclusive, uint32 *d_out); 

@@ -340,16 +340,22 @@ public:
 	
 #endif // __cplusplus
 
+	// Number of chunks (size)
 	uint32 num_chunks;
 
+	// Allocated number of chunks (capacity)
 	uint32 max_chunks;
 
+	// The idx of the node each chunk belongs to 
 	uint32 *d_node_idx; 
 
+	// The idx of first element in the chunk 
 	uint32 *d_first_elem_idx; 
 
+	// Number of elements
 	uint32 *d_num_elems; 
 
+	// 
 	float4 *d_aabb_min; 
 
 	float4 *d_aabb_max; 
