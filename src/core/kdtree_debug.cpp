@@ -88,11 +88,15 @@ void print_node_list(std::ostream& os, c_kd_node_list *node_list)
 		// Print elements list 
 		for (uint32 e = 0; e < h_num_elems[i]; ++e)
 		{
-			os << h_elems[e] << " | " ; 
+			os << h_elems[h_first_elem_idx[i]+e] << " | " ; 
 			if ( e != 0 && e % 30 == 0)
 				os << std::endl;
 		}
+
+		os << std::endl; 
 	}
+
+	os << std::endl; 
 
 	SAFE_DELETE_ARRAY(h_first_elem_idx); 
 	SAFE_DELETE_ARRAY(h_node_level); 
@@ -164,6 +168,8 @@ void print_chunks_list(std::ostream& os, c_kd_chunk_list *chunks_list)
 									<< h_aabb_max[i].z << " "
 									<< h_aabb_max[i].w << std::endl; 
 	} 
+
+	os << std::endl;
 	
 	SAFE_DELETE_ARRAY(h_node_idx);
 	SAFE_DELETE_ARRAY(h_num_elems); 

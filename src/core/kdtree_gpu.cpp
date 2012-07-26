@@ -231,6 +231,11 @@ void c_kdtree_gpu::large_node_stage()
 	// no more large nodes to work on.
 	while (!m_active_node_list->is_empty())
 	{
+		active_ofs << "Large Node Stage Loop Started! " << std::endl; 
+		
+		active_ofs << "Active List: " << std::endl; 
+		print_node_list(active_ofs, m_active_node_list); 
+
 		// Append the active list to the final node list. This is done even if the child information
 		// aren't available, yet. It is fixed later.
 		m_final_list->append_list(m_active_node_list, false, true);
@@ -249,10 +254,15 @@ void c_kdtree_gpu::large_node_stage()
 		// next nodes.
 		process_large_nodes(d_final_list_idx.buf_ptr());
 
+		active_ofs << "Next List: " << std::endl; 
+		print_node_list(active_ofs, m_next_node_list); 
+
 		// Swap active and next list for next pass.
 		c_kd_node_list *temp = m_active_node_list; 
 		m_active_node_list = m_next_node_list; 
 		m_next_node_list = temp;
+
+		active_ofs << "Large Node Stage Loop End! " << std::endl; 
 	} 
 }
 
@@ -286,6 +296,9 @@ void c_kdtree_gpu::process_large_nodes(uint32 *d_final_list_idx_active)
 	// Group elements into chunks.
 	create_chunk_list(m_active_node_list);
 
+	chunk_ofs << "Active list chunks: " << std::endl; 
+	print_chunks_list(chunk_ofs, m_chunk_list);
+
 	// Compute per node bounding boxes.
 	compute_nodes_aabbs(); 
 
@@ -293,17 +306,17 @@ void c_kdtree_gpu::process_large_nodes(uint32 *d_final_list_idx_active)
 	split_large_nodes(d_final_list_idx_active);
 
 	// Sort and clip elements to child nodes.
-	// sort_clip_to_child_nodes();
+	sort_clip_to_child_nodes();
 
-	/* 
+	active_ofs << "Next list: " << std::endl;
+	print_node_list(active_ofs, m_next_node_list);
+
 	// Now we have unclipped element bounds, so perform split clipping. Per default, this
 	// does nothing. Clipping has to be realized in subclasses.
-	perform_split_clipping(m_active_node_list, m_next_node_list); 
+	// perform_split_clipping(m_active_node_list, m_next_node_list); 
 
 	// Update lists for next run 
-	update_small_list(d_final_list_idx_active);
-
-	*/ 
+	update_small_list(d_final_list_idx_active); 
 }
 
 void c_kdtree_gpu::pre_process_small_nodes()
@@ -567,11 +580,8 @@ void c_kdtree_gpu::compute_nodes_aabbs()
 	if (m_active_node_list->num_elem_points == 1)
 		kernel_wrapper_gen_chunk_aabb<1>(*m_active_node_list, *m_chunk_list);
 	else 
-		kernel_wrapper_gen_chunk_aabb<2>(*m_active_node_list, *m_chunk_list);
-	
-	
-	print_chunks_list(chunk_ofs, m_chunk_list);
-	
+		kernel_wrapper_gen_chunk_aabb<2>(*m_active_node_list, *m_chunk_list); 
+		
 	// Now compute the tight bounding boxes of all nodes in parallel using
 	// segmented reduction. 
 	cuda_segmented_reduce_min(m_chunk_list->d_aabb_min, m_chunk_list->d_node_idx, m_chunk_list->num_chunks, make_float4(M_INFINITY), 
@@ -607,9 +617,6 @@ void c_kdtree_gpu::split_large_nodes(uint32 *d_final_list_index_active)
 
 	// Set new number of nodes.
 	m_next_node_list->num_nodes = 2*m_active_node_list->num_nodes; 
-
-	active_ofs << "Next node list: " << std::endl; 
-	print_node_list(active_ofs, m_next_node_list); 
 }
 
 void c_kdtree_gpu::sort_clip_to_child_nodes() 
@@ -617,8 +624,13 @@ void c_kdtree_gpu::sort_clip_to_child_nodes()
 	assert(m_chunk_list->num_chunks > 0);
 	
 	uint32 next_free_l; 
+	
+	// Element count for left and right child nodes
 	c_cuda_memory<uint32> d_counts_unaligned(2*m_active_node_list->num_nodes);
+	
+	// Element count for each chunk 
 	c_cuda_memory<uint32> d_chunk_counts(2*CUDA_ALIGN(m_chunk_list->num_chunks));
+
 	// Size: 2*m_pListActive->nextFreePos, first half for left marks, second for right marks.
 	c_cuda_memory<uint32> d_elem_marks(2*m_active_node_list->next_free_pos);
 	
@@ -639,6 +651,12 @@ void c_kdtree_gpu::sort_clip_to_child_nodes()
 		kernel_wrapper_mark_left_right_elems<1>(*m_active_node_list, *m_chunk_list, d_elem_marks.buf_ptr());
 	else 
 		kernel_wrapper_mark_left_right_elems<2>(*m_active_node_list, *m_chunk_list, d_elem_marks.buf_ptr());
+
+	others_ofs << "Elements Marks (left): " << std::endl; 
+	//print_device_array(others_ofs, d_elem_marks.buf_ptr(), m_active_node_list->next_free_pos); 
+	
+	others_ofs << "Elements Marks (right): " << std::endl; 
+	//print_device_array(others_ofs, d_elem_marks.buf_ptr()+m_active_node_list->next_free_pos, m_active_node_list->next_free_pos);
 	
 	// Determine per chunk element count for nodes using per block reduction.
 	// ... left nodes
@@ -646,19 +664,25 @@ void c_kdtree_gpu::sort_clip_to_child_nodes()
 	// ... right nodes
 	kernel_wrapper_count_elems_chunk(*m_chunk_list, d_elem_marks.buf_ptr()+m_active_node_list->next_free_pos, d_chunk_counts.buf_ptr()+CUDA_ALIGN(m_chunk_list->num_chunks));
 	
+	others_ofs << "Chunk counts(left): " << std::endl; 
+	//print_device_array(others_ofs, d_chunk_counts.buf_ptr(), m_chunk_list->num_chunks); 
+
+	others_ofs << "Chunk counts(right): " << std::endl; 
+	//print_device_array(others_ofs, d_chunk_counts.buf_ptr()+CUDA_ALIGN(m_chunk_list->num_chunks), m_chunk_list->num_chunks);
+	
 	// Perform segmented reduction on per chunk results to get per child nodes results. The owner
 	// list is the chunk's idxNode list.
 	
+	others_ofs << "Node idx: " << std::endl; 
+	print_device_array(others_ofs, m_chunk_list->d_node_idx, m_chunk_list->num_chunks);
+
 	// left nodes 
 	cuda_segmented_reduce_add(d_chunk_counts.buf_ptr(), 
 							m_chunk_list->d_node_idx, 
 							m_chunk_list->num_chunks, 
 							(uint32)0, 
 							d_counts_unaligned.buf_ptr(), 
-							m_active_node_list->num_nodes);
-
-	others_ofs << "d_counts_unaligned: "<< std::endl;
-	//  print_device_array(others_ofs, d_counts_unaligned.buf_ptr(), )
+							m_active_node_list->num_nodes); 
 	
 	// right nodes 
 	cuda_segmented_reduce_add(d_chunk_counts.buf_ptr()+CUDA_ALIGN(m_chunk_list->num_chunks),
@@ -668,11 +692,17 @@ void c_kdtree_gpu::sort_clip_to_child_nodes()
 							d_counts_unaligned.buf_ptr()+m_active_node_list->num_nodes,
 							m_active_node_list->num_nodes); 
 
+	others_ofs << "Child node elem counts(left): " << std::endl; 
+	//print_device_array(others_ofs, d_counts_unaligned.buf_ptr(), m_active_node_list->num_nodes); 
+
+	others_ofs << "Child node elem counts(right): " << std::endl; 
+	//print_device_array(others_ofs, d_counts_unaligned.buf_ptr()+m_active_node_list->num_nodes, m_active_node_list->num_nodes);
+	
+
 	next_free_l = compact_elem_data(m_next_node_list, 0, 0, 
 									m_active_node_list, 0, 2 * m_active_node_list->num_nodes, 
 									d_elem_marks.buf_ptr(), d_counts_unaligned.buf_ptr(), 2);
 	
-
 	m_next_node_list->next_free_pos = next_free_l;
 }
 
@@ -681,7 +711,10 @@ void c_kdtree_gpu::create_chunk_list(c_kd_node_list *node_list)
 	if (m_current_chunk_list_src == node_list)
 		return;
 	
+	// Number of chunks per node
 	c_cuda_memory<uint32> d_counts(node_list->num_nodes);
+	
+	// Offsets of the first chunk of each node
 	c_cuda_memory<uint32> d_offsets(node_list->num_nodes);
 	
 	// Clear old list first.
@@ -689,16 +722,22 @@ void c_kdtree_gpu::create_chunk_list(c_kd_node_list *node_list)
 	
 	// Check if the chunk list is large enough. For now we do NO resizing since we allocated a
 	// big enough chunk list (probably too big in most cases).
-	uint32 max_chunks = node_list->next_free_pos / KD_CHUNKSIZE + node_list->num_nodes;
+	uint32 max_chunks = node_list->next_free_pos / KD_CHUNKSIZE;
 	assert(max_chunks <= m_chunk_list->max_chunks);
 
 	if (max_chunks > m_chunk_list->max_chunks)
 		yart_log_message("Chunk list too small (max: %d; need: %d).\n", m_chunk_list->max_chunks, max_chunks);
 
+	//chunk_ofs << "Node elems counts: " << std::endl; 
+	//print_device_array(chunk_ofs, node_list->d_num_elems_array, node_list->num_nodes);
+
 	// Get the count of chunks for each node. Store them in d_counts
 	kernel_wrapper_get_chunk_counts(node_list->d_num_elems_array, 
 								node_list->num_nodes, 
 								d_counts.buf_ptr());
+
+	//chunk_ofs << "Chunk counts: " << std::endl; 
+	//print_device_array(chunk_ofs, d_counts.buf_ptr(), node_list->num_nodes);
 	
 	// Scan the counts to d_offsets. Use exclusive scan cause then we have
 	// the start index for the i-th node in the i-th element of d_offsets.
@@ -732,18 +771,36 @@ uint32 c_kdtree_gpu::compact_elem_data(c_kd_node_list *dest_node_list,
 	c_cuda_memory<uint32> d_counts_aligned(num_src_nodes); 
 	c_cuda_memory<uint32> d_offsets_aligned(num_src_nodes);
 
+	others_ofs << "d_counts_unaligned: " << std::endl; 
+	//print_device_array(others_ofs, d_counts_unaligned, num_src_nodes); 
+
 	// Get unaligned offsets.
-	cuda_scan(d_counts_aligned.buf_ptr(), num_src_nodes, false, d_offsets_aligned.buf_ptr());
+	cuda_scan(d_counts_unaligned, num_src_nodes, false, d_offsets_unaligned.buf_ptr());
+
+	others_ofs << "d_offsets_unaligned: " << std::endl; 
+	//print_device_array(others_ofs, d_offsets_unaligned.buf_ptr(), num_src_nodes); 
 
 	// Get aligned counts to temp buffer to avoid uncoalesced access (here and later).
 	cuda_align_counts(d_counts_aligned.buf_ptr(), d_counts_unaligned, num_src_nodes);
 
+	others_ofs << "d_counts_aligned: " << std::endl; 
+	//print_device_array(others_ofs, d_counts_aligned.buf_ptr(), num_src_nodes); 
+
 	// Scan to produce the offsets 
 	cuda_scan(d_counts_aligned.buf_ptr(), num_src_nodes, false, d_offsets_aligned.buf_ptr());
 	
+	others_ofs << "d_offsets_aligned: " << std::endl; 
+	//print_device_array(others_ofs, d_offsets_aligned.buf_ptr(), num_src_nodes); 
+	
 	// Now copy in resulting *unaligned* counts and aligned offsets.
-	cuda_safe_call_no_sync(cudaMemcpy(dest_node_list->d_num_elems_array+node_offset, d_counts_unaligned, num_src_nodes*sizeof(uint32), cudaMemcpyDeviceToDevice));
-	cuda_safe_call_no_sync(cudaMemcpy(dest_node_list->d_first_elem_idx+node_offset, d_offsets_aligned.buf_ptr(), num_src_nodes*sizeof(uint32), cudaMemcpyDeviceToDevice));
+	cuda_safe_call_no_sync(cudaMemcpy(dest_node_list->d_num_elems_array+node_offset, 
+									d_counts_unaligned, 
+									num_src_nodes*sizeof(uint32), 
+									cudaMemcpyDeviceToDevice));
+	cuda_safe_call_no_sync(cudaMemcpy(dest_node_list->d_first_elem_idx+node_offset, 
+									d_offsets_aligned.buf_ptr(), 
+									num_src_nodes*sizeof(uint32), 
+									cudaMemcpyDeviceToDevice));
 	
 	// Offset d_idxFirstElem by destOffset.
 	if (dest_offset > 0)
@@ -752,9 +809,6 @@ uint32 c_kdtree_gpu::compact_elem_data(c_kd_node_list *dest_node_list,
 	// Get next free position by reduction. Using two device-to-host memcpys were slower than this!
 	uint32 aligned_sum, next_free_pos; 
 	cuda_reduce_add(aligned_sum, d_counts_aligned.buf_ptr(), num_src_nodes, (uint32)0);
-
-	others_ofs << "d_counts.aligned: " << std::endl;
-	print_device_array(others_ofs, d_counts_aligned.buf_ptr(), num_src_nodes); 
 	
 	next_free_pos = aligned_sum + dest_offset;
 
@@ -781,7 +835,10 @@ uint32 c_kdtree_gpu::compact_elem_data(c_kd_node_list *dest_node_list,
 		{
 			// 1. Get inverse count differences (that is unaligned - aligned = -(aligned - unaligned)).
 			c_cuda_memory<uint32> d_inv_count_diffs(num_src_nodes);
-			cuda_safe_call_no_sync(cudaMemcpy(d_inv_count_diffs.buf_ptr(), d_counts_unaligned, num_src_nodes*sizeof(uint32), cudaMemcpyDeviceToDevice));
+			cuda_safe_call_no_sync(cudaMemcpy(d_inv_count_diffs.buf_ptr(), 
+											d_counts_unaligned, 
+											num_src_nodes*sizeof(uint32), 
+											cudaMemcpyDeviceToDevice));
 			cuda_array_op<cuda_op_sub, uint32>(d_inv_count_diffs.buf_ptr(), d_counts_aligned.buf_ptr(), num_src_nodes);
 
 			// 2. Copy inverse count differences to node starts in d_bufTemp, but offset them by one node
@@ -789,15 +846,30 @@ uint32 c_kdtree_gpu::compact_elem_data(c_kd_node_list *dest_node_list,
 			cuda_safe_call_no_sync(cudaMemset(d_addresses.buf_ptr(), 0, aligned_sum*sizeof(uint32)));
 			//    Only need to set numSourceNode-1 elements, starting with d_offsetsAligned + 1 as
 			//    first address.
-			cuda_set_at_address((uint32*)d_addresses.buf_ptr(), d_offsets_aligned.buf_ptr() + 1, (uint32*)d_inv_count_diffs.buf_ptr(), num_src_nodes - 1);
+			cuda_set_at_address((uint32*)d_addresses.buf_ptr(), 
+								d_offsets_aligned.buf_ptr() + 1, 
+								(uint32*)d_inv_count_diffs.buf_ptr(), 
+								num_src_nodes - 1);
 			
+			others_ofs << "d_addresses(1): " << std::endl; 
+			//print_device_array(others_ofs, d_addresses.buf_ptr(), aligned_sum); 
+
 			// 3. Scan the differences to distribute them to the other node elements.
 			//    Do this inplace in d_addresses.
 			cuda_scan(d_addresses.buf_ptr(), aligned_sum, true, d_addresses.buf_ptr());
 
+			others_ofs << "d_addresses(2): " << std::endl; 
+			//print_device_array(others_ofs, d_addresses.buf_ptr(), aligned_sum); 
+
 			// 4. Add identity
 			cuda_add_identity(d_addresses.buf_ptr(), aligned_sum);
+
+			others_ofs << "d_addresses(3): " << std::endl; 
+			//print_device_array(others_ofs, d_addresses.buf_ptr(), aligned_sum); 
 		}
+
+		others_ofs << "d_addresses: " << std::endl; 
+		//print_device_array(others_ofs, d_addresses.buf_ptr(), aligned_sum); 
 
 		// To avoid multiple calls of compact we just compact an identity array once
 		// to generate the source addresses. 
@@ -807,6 +879,15 @@ uint32 c_kdtree_gpu::compact_elem_data(c_kd_node_list *dest_node_list,
 		cuda_safe_call_no_sync(cudaMemset(d_buf_temp.buf_ptr(), 0, aligned_sum*sizeof(uint32)));
 		cuda_compact(d_src_addr.buf_ptr(), d_valid_marks, num_segments*src_node_list->next_free_pos, d_buf_temp.buf_ptr(), d_temp_val.buf_ptr());
 		
+		others_ofs << "d_valid_marks: " << std::endl; 
+		//print_device_array(others_ofs, d_valid_marks, num_segments*src_node_list->next_free_pos); 
+
+		others_ofs << "d_src_addr: " << std::endl; 
+		//print_device_array(others_ofs, d_src_addr.buf_ptr(), num_segments*src_node_list->next_free_pos); 
+
+		others_ofs << "d_buf_temp: " << std::endl; 
+		//print_device_array(others_ofs, d_buf_temp.buf_ptr(), aligned_sum); 
+
 		// Ensure the destination list element data is large enough.
 		if (dest_node_list->max_elems < next_free_pos)
 			dest_node_list->resize_elem_data(next_free_pos);
@@ -826,11 +907,17 @@ uint32 c_kdtree_gpu::compact_elem_data(c_kd_node_list *dest_node_list,
 							d_addresses.buf_ptr(), 
 							(uint32*)d_buf_temp.buf_ptr(), 
 							aligned_sum);
+
+		others_ofs << "d_src_addr(2): " << std::endl; 
+		//print_device_array(others_ofs, d_src_addr.buf_ptr(), num_segments*src_node_list->next_free_pos);  
 		
 		cuda_set_from_address(dest_node_list->d_node_elems_list + dest_offset, 
 							d_src_addr.buf_ptr(), 
 							src_node_list->d_node_elems_list, 
 							aligned_sum);
+
+		others_ofs << "dest_node_list->d_node_elem_list: " << std::endl; 
+		//print_device_array(others_ofs, dest_node_list->d_node_elems_list + dest_offset, aligned_sum); 
 
 		cuda_set_from_address(dest_node_list->d_elem_point1 + dest_offset, 
 							d_src_addr.buf_ptr(), 
@@ -857,13 +944,28 @@ void c_kdtree_gpu::update_small_list(uint32 *d_final_list_index_active)
 	c_cuda_memory<uint32> d_node_list_offsets(m_next_node_list->num_nodes);
 	
 	uint32 num_small, num_large, next_free_small, next_free_large;
-	
+
 	// Group next list elements into chunks.
 	create_chunk_list(m_next_node_list);
+
+	chunk_ofs << "Next list chunks: " << std::endl; 
+	print_chunks_list(chunk_ofs, m_chunk_list);
+
+	others_ofs << "d_final_list_index_active: " << std::endl; 
+	print_device_array(others_ofs, d_final_list_index_active, m_active_node_list->num_nodes);
 	
 	// Mark small nodes. Result to d_nodeMarks. Small node parent array to d_smallParents.
-	kernel_wrapper_mark_small_nodes(*m_next_node_list, d_final_list_index_active, d_node_marks.buf_ptr(), d_small_root_parents);
+	kernel_wrapper_mark_small_nodes(*m_next_node_list, 
+									d_final_list_index_active, 
+									d_node_marks.buf_ptr(), 
+									d_small_parents.buf_ptr());
+
+	others_ofs << "d_small_parents" << std::endl; 
+	print_device_array(others_ofs, d_small_parents.buf_ptr(), m_next_node_list->num_nodes);
 	
+	others_ofs << "d_node_marks" << std::endl; 
+	print_device_array(others_ofs, d_node_marks.buf_ptr(), m_next_node_list->num_nodes);
+
 	// Compact small root parents array to get d_smallRootParents for new small roots.
 	cuda_compact(d_small_parents.buf_ptr(), 
 				d_node_marks.buf_ptr(), 
@@ -980,23 +1082,21 @@ void c_kdtree_gpu::update_small_list(uint32 *d_final_list_index_active)
 											num_large, 
 											d_is_large_elem, 
 											d_counts_unaligned.buf_ptr());
-		
-		// Now the new next list is the active list as we used it to temporarily build the
-		// next list to avoid overwriting. We make the active list real by swapping it with
-		// the next list. This avoids copying stuff back.
-		
-		c_kd_node_list *ptemp = m_active_node_list; 
-		m_active_node_list = m_next_node_list; 
-		m_next_node_list = ptemp; 
-		m_active_node_list->clear(); 
-
-		// update counts 
-		m_small_node_list->num_nodes += num_small;
-		m_small_node_list->next_free_pos = next_free_small; 
-		m_next_node_list->num_nodes = num_large; 
-		m_next_node_list->next_free_pos = next_free_large; 
-
 	}
 
+	// Now the new next list is the active list as we used it to temporarily build the
+	// next list to avoid overwriting. We make the active list real by swapping it with
+	// the next list. This avoids copying stuff back.
+
+	c_kd_node_list *ptemp = m_active_node_list; 
+	m_active_node_list = m_next_node_list; 
+	m_next_node_list = ptemp; 
+	m_active_node_list->clear(); 
+
+	// update counts 
+	m_small_node_list->num_nodes += num_small;
+	m_small_node_list->next_free_pos = next_free_small; 
+	m_next_node_list->num_nodes = num_large; 
+	m_next_node_list->next_free_pos = next_free_large; 
 } 
 

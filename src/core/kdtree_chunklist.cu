@@ -1,4 +1,5 @@
 
+#include "prerequisites.h"
 #include "kernel_data.h"
 #include "kdtree_kernel_data.h"
 #include "cuda_utils.h"
@@ -98,7 +99,7 @@ __global__ void kernel_count_elems_chunk(c_kd_chunk_list chunks_list, uint32 *d_
 	__syncthreads();
 
 	// Now perform reduction on chunks's flags.
-	uint32 res = device_reduce_fast<uint32, KD_CHUNKSIZE, op_add<uint32>>(s_mem);
+	uint32 res = device_reduce_fast<uint32, KD_CHUNKSIZE/2, op_add<uint32>>(s_mem);
 	
 	if (threadIdx.x == 0)
 		d_out_num_elems[chk] = res; 

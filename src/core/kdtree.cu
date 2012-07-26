@@ -22,8 +22,6 @@ __constant__ float k_empty_space_ratio;
 __constant__ uint32 k_small_node_max; 
 __constant__ float k_max_query_radius;
 
-
-
 // ---------------------------------------------------------------------
 /*
 /// \brief	Slim version of KDNodeList for node AABB related tasks.
@@ -279,27 +277,27 @@ __global__ void kernel_gen_chunk_aabb(c_kd_node_list node_list, c_kd_chunk_list 
 		// second elem point, max 
 		v1 = -M_INFINITY; v2 = -M_INFINITY;
 		if (threadIdx.x < s_num_elems)
-			v1 = node_list.d_elem_point1[s_first_elem_idx + threadIdx.x].x; 
+			v1 = node_list.d_elem_point2[s_first_elem_idx + threadIdx.x].x; 
 		if (threadIdx.x + blockDim.x < s_num_elems)
-			v2 = node_list.d_elem_point1[s_first_elem_idx + threadIdx.x + blockDim.x].x; 
+			v2 = node_list.d_elem_point2[s_first_elem_idx + threadIdx.x + blockDim.x].x; 
 		s_mem[threadIdx.x] = fmaxf(v1, v2);
 		__syncthreads(); 
 		aabb_max.x = device_reduce_fast<float, (uint32)(KD_CHUNKSIZE/2), op_maximum<float>>(s_mem, op_maximum<float>());
 
-		v1 = M_INFINITY; v2 = M_INFINITY;
+		v1 = -M_INFINITY; v2 = -M_INFINITY;
 		if (threadIdx.x < s_num_elems)
-			v1 = node_list.d_elem_point1[s_first_elem_idx + threadIdx.x].y; 
+			v1 = node_list.d_elem_point2[s_first_elem_idx + threadIdx.x].y; 
 		if (threadIdx.x + blockDim.x < s_num_elems)
-			v2 = node_list.d_elem_point1[s_first_elem_idx + threadIdx.x + blockDim.x].y; 
+			v2 = node_list.d_elem_point2[s_first_elem_idx + threadIdx.x + blockDim.x].y; 
 		s_mem[threadIdx.x] = fmaxf(v1, v2);
 		__syncthreads(); 
 		aabb_max.y = device_reduce_fast<float, (uint32)(KD_CHUNKSIZE/2), op_maximum<float>>(s_mem, op_maximum<float>());
 
-		v1 = M_INFINITY; v2 = M_INFINITY;
+		v1 = -M_INFINITY; v2 = -M_INFINITY;
 		if (threadIdx.x < s_num_elems)
-			v1 = node_list.d_elem_point1[s_first_elem_idx + threadIdx.x].z; 
+			v1 = node_list.d_elem_point2[s_first_elem_idx + threadIdx.x].z; 
 		if (threadIdx.x + blockDim.x < s_num_elems)
-			v2 = node_list.d_elem_point1[s_first_elem_idx + threadIdx.x + blockDim.x].z; 
+			v2 = node_list.d_elem_point2[s_first_elem_idx + threadIdx.x + blockDim.x].z; 
 		s_mem[threadIdx.x] = fmaxf(v1, v2);
 		__syncthreads(); 
 		aabb_max.z = device_reduce_fast<float, (uint32)(KD_CHUNKSIZE/2), op_maximum<float>>(s_mem, op_maximum<float>());
@@ -581,19 +579,9 @@ __global__ void kernel_split_large_nodes(const c_kd_node_list active_list, kd_no
 				aabb_max_inherit.z - aabb_min_inherit.z > aabb_max_inherit.y - aabb_min_inherit.y) 
 				longest = 2; 
 
-		float aabb_min_child[3] = {aabb_min_inherit.x, aabb_min_inherit.y, aabb_min_inherit.z};
-		float aabb_max_child[3] = {aabb_max_inherit.x, aabb_max_inherit.y, aabb_max_inherit.z}; 
-		
-		float v1 = aabb_min_child[longest]; 
-		float v2 = aabb_max_child[longest];
-		float v3 = aabb_max_child[longest]-aabb_min_child[longest]; 
-		float v4 = 0.5f * v3; 
-		float v5 = v4 + v1;  
-		// float split_pos = v1 + .5f * v3; 
-		float split_pos = aabb_min_child[longest] + (aabb_max_child[longest] - aabb_min_child[longest]) * 0.5f; 
 		
 		// Split position 
-		// float split_pos = ((float*)&aabb_min_inherit)[longest] + 0.5f * ( ((float*)&aabb_max_inherit)[longest] - ((float*)&aabb_min_inherit)[longest] );
+		float split_pos = ((float*)&aabb_min_inherit)[longest] + 0.5f * ( ((float*)&aabb_max_inherit)[longest] - ((float*)&aabb_min_inherit)[longest] );
 		
 		// Store split information
 		active_list.d_split_axis[idx] = longest;
@@ -602,7 +590,9 @@ __global__ void kernel_split_large_nodes(const c_kd_node_list active_list, kd_no
 		uint32 old_level = active_list.d_node_level[idx];
 		
 		// Add the two children for spatial median split.
- 
+		float aabb_min_child[3] = {aabb_min_inherit.x, aabb_min_inherit.y, aabb_min_inherit.z};
+		float aabb_max_child[3] = {aabb_max_inherit.x, aabb_max_inherit.y, aabb_max_inherit.z};
+
 		// Below node 
 		uint32 idx_write = idx;
 		aabb_max_child[longest] = split_pos;
@@ -625,7 +615,10 @@ __global__ void kernel_split_large_nodes(const c_kd_node_list active_list, kd_no
 }
 
 
-__global__ void kernel_mark_small_nodes(c_kd_node_list next_list, uint32 *d_final_list_idx, uint32 *d_is_small, uint32 *d_small_root_parent)
+__global__ void kernel_mark_small_nodes(c_kd_node_list next_list, 
+										uint32 *d_final_list_idx, 
+										uint32 *d_is_small, 
+										uint32 *d_small_root_parent)
 {
 	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
 	
@@ -1502,6 +1495,7 @@ void kernel_wrapper_mark_small_nodes(const c_kd_node_list& next_list, uint32 *d_
 	dim3 grid_size = dim3(CUDA_DIVUP(next_list.num_nodes, block_size.x), 1, 1);
 	
 	kernel_mark_small_nodes<<<grid_size, block_size>>>(next_list, d_final_list_idx, d_is_small, d_small_root_parent);
+	CUDA_CHECKERROR; 
 }
 
 extern "C"

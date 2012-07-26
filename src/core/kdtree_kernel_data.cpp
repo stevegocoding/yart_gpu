@@ -43,7 +43,7 @@ void c_kd_node_list::initialize(uint32 _max_nodes, uint32 _max_elems, uint32 _nu
 		cuda_safe_call_no_sync(mem_pool.request((void**)&d_elem_point2, max_elems*sizeof(float4), "kd-tree node"));
 
 	
-	cuda_safe_call_no_sync(cudaMemset(d_num_elems_array, 0, max_nodes*sizeof(uint32)))
+	cuda_safe_call_no_sync(cudaMemset(d_num_elems_array, 0, max_nodes*sizeof(uint32)));
 }
 
 void c_kd_node_list::append_list(c_kd_node_list *nodes_list, bool append_data)
@@ -168,10 +168,10 @@ void c_kd_node_list::resize_node_data(uint32 required)
 	cuda_resize_mem(&d_num_elems_array, max_nodes, new_max);
 	cuda_resize_mem(&d_node_level, max_nodes, new_max);
 	
-	cuda_resize_mem(&d_aabb_tight_min, max_elems, new_max);  
-	cuda_resize_mem(&d_aabb_tight_max, max_elems, new_max);
-	cuda_resize_mem(&d_aabb_inherit_min, max_elems, new_max);
-	cuda_resize_mem(&d_aabb_inherit_max, max_elems, new_max);
+	cuda_resize_mem(&d_aabb_tight_min, max_nodes, new_max);  
+	cuda_resize_mem(&d_aabb_tight_max, max_nodes, new_max);
+	cuda_resize_mem(&d_aabb_inherit_min, max_nodes, new_max);
+	cuda_resize_mem(&d_aabb_inherit_max, max_nodes, new_max);
 	
 	cuda_resize_mem(&d_split_axis, max_nodes, new_max);
 	cuda_resize_mem(&d_split_pos, max_nodes, new_max);

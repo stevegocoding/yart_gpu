@@ -317,7 +317,8 @@ void cuda_align_counts(uint32 *d_out_aligned, uint32 *d_counts, uint32 count)
 
 void cuda_inverse_binary(uint32 *d_buffer, uint32 count)
 {
-	
+	assert(d_buffer && count > 0);
+	kernel_wrapper_inverse_binary(d_buffer, count); 
 }
 
 //////////////////////////////////////////////////////////////////////////

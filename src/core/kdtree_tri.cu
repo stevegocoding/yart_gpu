@@ -113,7 +113,12 @@ public:
 /// 		the end point is inside, it is also added right after the clipped point. 
 */ 
 // ---------------------------------------------------------------------
-__device__ void device_clip_seg(float3 pt_start, float3 pt_end, uint32 axis, float axis_value, float sense, point_list& io_clipped)
+__device__ void device_clip_seg(float3 pt_start, 
+								float3 pt_end, 
+								uint32 axis, 
+								float axis_value, 
+								float sense, 
+								point_list& io_clipped)
 {
 	float *start = (float*)&pt_start;
 	float *end = (float*)&pt_end;
@@ -157,7 +162,7 @@ __device__ void device_clip_segments(const point_list& pts_list, uint32 axis, fl
 	for (uint32 i = 0; i < pts_list.count; ++i)
 	{
 		const float3& pt1 = pts_list.pts[i];
-		uint32 ip1 = i + i; 
+		uint32 ip1 = i + 1; 
 		if (ip1 == pts_list.count)
 			ip1 = 0; 
 		const float3& pt2 = pts_list.pts[ip1];
@@ -166,7 +171,22 @@ __device__ void device_clip_segments(const point_list& pts_list, uint32 axis, fl
 	}
 }
 
-__device__ void device_clip_tri_to_bounds(float3 verts[3], float3 aabb_min, float3 aabb_max, float *aabb_tri_min, float *aabb_tri_max, point_list& out_list)
+
+// ---------------------------------------------------------------------
+/* 
+/// \brief	Clips triangle to the given bounding box.
+/// 		
+/// 		Basically, each triangle segment is clipped against each side of the bounding box.
+/// 		Hence, this function calls dev_ClipSegments() multiple times, i.e. once for each
+/// 		side. 
+*/ 
+// ---------------------------------------------------------------------
+__device__ void device_clip_tri_to_bounds(float3 verts[3], 
+										float3 aabb_min, 
+										float3 aabb_max, 
+										float *aabb_tri_min, 
+										float *aabb_tri_max, 
+										point_list& out_list)
 {
 	point_list ohter_list;
 	
