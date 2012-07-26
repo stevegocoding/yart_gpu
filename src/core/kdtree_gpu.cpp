@@ -209,10 +209,10 @@ bool c_kdtree_gpu::build_tree()
 	// Large node stage
 	large_node_stage();
 
-	/*
 	// Small node stage
-	small_node_stage();
+	// small_node_stage();
 
+	/* 
 	// Generates final node list m_pKDData.
 	preorder_traversal(); 
 	*/ 
@@ -317,6 +317,9 @@ void c_kdtree_gpu::process_large_nodes(uint32 *d_final_list_idx_active)
 
 	// Update lists for next run 
 	update_small_list(d_final_list_idx_active); 
+
+	active_ofs << "Small list: " << std::endl; 
+	print_node_list(active_ofs, m_small_node_list); 
 }
 
 void c_kdtree_gpu::pre_process_small_nodes()
@@ -972,10 +975,13 @@ void c_kdtree_gpu::update_small_list(uint32 *d_final_list_index_active)
 				m_next_node_list->num_nodes, 
 				d_small_root_parents+m_small_node_list->num_nodes, 
 				d_temp_val.buf_ptr());
-	
+
 	// Store the number of small nodes, but do not update the list's value for now.
 	// This ensures we still have the old value.
 	cuda_safe_call_no_sync(cudaMemcpy(&num_small, d_temp_val.buf_ptr(), sizeof(uint32), cudaMemcpyDeviceToHost));
+
+	others_ofs << "d_small_root_parents" << std::endl; 
+	print_device_array(others_ofs, d_small_root_parents, num_small+m_small_node_list->num_nodes); 
 	
 	// Get element markers to d_elemMarks. Zero first to avoid marked empty space.
 	c_cuda_memory<uint32> d_elem_marks(2*m_next_node_list->next_free_pos);
@@ -984,6 +990,11 @@ void c_kdtree_gpu::update_small_list(uint32 *d_final_list_index_active)
 	uint32 *d_is_large_elem = d_elem_marks.buf_ptr() + m_next_node_list->next_free_pos;
 	kernel_wrapper_mark_elems_by_node_size(*m_chunk_list, m_next_node_list->d_num_elems_array, d_is_small_elem, d_is_large_elem);
 	
+	others_ofs << "Small node elems: " << std::endl; 
+	print_device_array(others_ofs, d_is_small_elem, m_next_node_list->next_free_pos); 
+
+	others_ofs << "Large node elems: " << std::endl; 
+	print_device_array(others_ofs, d_is_large_elem, m_next_node_list->next_free_pos); 
 
 	if (num_small == 0)
 		next_free_small = m_small_node_list->next_free_pos;
@@ -1004,7 +1015,16 @@ void c_kdtree_gpu::update_small_list(uint32 *d_final_list_index_active)
 			m_small_node_list->resize_node_data(m_small_node_list->num_nodes + num_small);
 
 		// Now remove small nodes and add them to the small list.
-		kernel_wrapper_move_nodes(*m_next_node_list, *m_small_node_list, d_node_marks.buf_ptr(), d_node_list_offsets.buf_ptr(), true);
+		kernel_wrapper_move_nodes(*m_next_node_list, 
+								*m_small_node_list, 
+								d_node_marks.buf_ptr(), 
+								d_node_list_offsets.buf_ptr(), 
+								true);
+
+		m_small_node_list->num_nodes += num_small;
+		active_ofs << "Small list (1): " << std::endl; 
+		print_node_list(active_ofs, m_small_node_list); 
+		m_small_node_list->num_nodes -= num_small; 
 
 		// Need to update left & right child pointers in current active list here. This is
 		// neccessary since we remove the small nodes and the current pointers point to
@@ -1033,6 +1053,9 @@ void c_kdtree_gpu::update_small_list(uint32 *d_final_list_index_active)
 											num_small, 
 											d_is_small_elem, 
 											d_counts_unaligned.buf_ptr());
+
+		others_ofs << "Compact small node elems: " << std::endl; 
+		print_device_array(others_ofs, m_small_node_list->d_node_elems_list, m_small_node_list->next_free_pos); 
 	}
 	
 	// Do the same with the remaining large nodes. But do not calculate the markers

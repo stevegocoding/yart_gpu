@@ -43,12 +43,12 @@ void print_node_list(std::ostream& os, c_kd_node_list *node_list)
 
 	// Copy back AABB tight
 	cuda_safe_call_no_sync(cudaMemcpy(h_aabb_min_tight, 
-									node_list->d_aabb_inherit_min,
+									node_list->d_aabb_tight_min,
 									num_nodes*sizeof(float4), 
 									cudaMemcpyDeviceToHost)); 
 
 	cuda_safe_call_no_sync(cudaMemcpy(h_aabb_max_tight, 
-									node_list->d_aabb_inherit_max, 
+									node_list->d_aabb_tight_max, 
 									num_nodes*sizeof(float4), 
 									cudaMemcpyDeviceToHost)); 
 

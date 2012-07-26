@@ -1512,7 +1512,11 @@ void kernel_wrapper_mark_elems_by_node_size(const c_kd_chunk_list& chunks_list,
 }
 
 extern "C"
-void kernel_wrapper_move_nodes(const c_kd_node_list& src_list, c_kd_node_list& dest_list, uint32 *d_move, uint32 *d_offsets, bool b_dest_is_small)
+void kernel_wrapper_move_nodes(const c_kd_node_list& src_list, 
+							c_kd_node_list& dest_list, 
+							uint32 *d_move, 
+							uint32 *d_offsets, 
+							bool b_dest_is_small)
 {
 	dim3 block_size = dim3(256, 1, 1);
 	dim3 grid_size = dim3(CUDA_DIVUP(src_list.num_nodes, block_size.x), 1, 1);
