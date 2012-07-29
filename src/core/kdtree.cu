@@ -739,6 +739,17 @@ __global__ void kernel_update_final_list_children_info(c_kd_node_list active_lis
 	}
 }
 
+// ---------------------------------------------------------------------
+/* 
+/// \brief	Creates split candidate list for small node stage.
+/// 		
+///			A split list is prepared by assigning split position and split axis. This is done for
+///			each small list node. All element boundaries define possible splits, hence the number
+///			of splits depends on the number of element points. If it is 1, there is just one
+///			possible split position on a single axis. If it is 2, there are two (min, max) split
+///			positions. 
+*/ 
+// ---------------------------------------------------------------------
 template <uint32 num_elem_pts>
 __global__ void kernel_create_split_candidates(c_kd_node_list small_list, c_kd_split_list split_list)
 {
@@ -867,7 +878,7 @@ __global__ void kernel_init_split_masks(c_kd_node_list small_list, float *d_rand
 				mask_r |= (((elem_mask_t)is_right) << i); 
 			}
 		}
-		else
+		else	// num_elem_pts == 2 
 		{
 #pragma unroll
 			for (uint32 i = 0; i < s_num_elems; ++i)
@@ -892,10 +903,10 @@ __global__ void kernel_init_split_masks(c_kd_node_list small_list, float *d_rand
 				//  - Minimum splits split off the left part of the volume. Here the triangle has
 				//	  to lie on the right side only.
 				// NOTE: According to the profiler, this won't generate too many warp serializes.
-				if (is_max)
+				if (is_max)		// Evaluated at compile time
 					if (s_idx_first_elem + i == idx_tna)
 						is_left = 1;
-				if (!is_max)
+				if (!is_max)	// Evaluated at compile time 
 					if (s_idx_first_elem + i == idx_tna)
 						is_right = 1; 
 
@@ -1018,9 +1029,9 @@ __global__ void kernel_find_best_splits(c_kd_node_list active_list,
 		}
 		else 
 		{
-			float area_node = 2.0f * s_extend_node[0]*s_extend_node[1] + 
+			float area_node = 2.0f * (s_extend_node[0]*s_extend_node[1] + 
 									s_extend_node[0]*s_extend_node[2] + 
-									s_extend_node[1]*s_extend_node[2]; 
+									s_extend_node[1]*s_extend_node[2]); 
 			s_cost_denom = 1.0f / area_node; 
 		}
 	}
@@ -1082,7 +1093,7 @@ __global__ void kernel_find_best_splits(c_kd_node_list active_list,
 			}
 		}
 	}
-	else 
+	else	// num_elem_pts == 2
 	{
 #pragma unroll 
 		for (uint32 i = 0; i < 3; ++i)
@@ -1112,11 +1123,11 @@ __global__ void kernel_find_best_splits(c_kd_node_list active_list,
 					other_axis2 -= 3; 
 				float min_split_axis = s_aabb_node_min[split_axis];
 				float area_l = 2.0f * (s_extend_node[other_axis1] * s_extend_node[other_axis2] +
-									(split_pos - min_split_axis) +
+									(split_pos - min_split_axis) *
 									(s_extend_node[other_axis1] + s_extend_node[other_axis2])); 
 				float max_split_axis = s_aabb_node_max[split_axis]; 
 				float area_r = 2.0f * (s_extend_node[other_axis1] * s_extend_node[other_axis2] +
-									(max_split_axis - split_pos) +
+									(max_split_axis - split_pos) *
 									(s_extend_node[other_axis1] + s_extend_node[other_axis2])); 
 
 				// Compute VVH cost for this split.
@@ -1304,6 +1315,15 @@ __global__ void kernel_traversal_up_path(c_kd_final_node_list final_list, uint32
 	}
 }
 
+// ---------------------------------------------------------------------
+/* 
+/// \brief	Initializes KDTreeData::d_preorderTree using precomputed node sizes.
+/// 		
+/// 		Assigns final node list data to entries of KDTreeData::d_preorderTree.
+/// 		
+/// 		\warning Has to be called top-down.  
+*/ 
+// ---------------------------------------------------------------------
 __global__ void kernel_traversal_down_path(c_kd_final_node_list final_list, 
 										uint32 cur_level, 
 										uint32 *d_sizes, 
@@ -1324,6 +1344,9 @@ __global__ void kernel_traversal_down_path(c_kd_final_node_list final_list,
 		uint32 idx_node_leaf = idx_node; 
 		idx_node_leaf |= ((left == right) ? 0x80000000 : 0); 
 		
+		// Now write node idx 
+		kd_data.d_preorder_tree[my_addr] = idx_node_leaf; 
+
 		float split_pos = final_list.d_split_pos[idx_node]; 
 		uint32 split_axis = final_list.d_split_axis[idx_node]; 
 
@@ -1338,10 +1361,10 @@ __global__ void kernel_traversal_down_path(c_kd_final_node_list final_list,
 			// Write parent info.
 			uint2 parent_info; 
 			parent_info.x = addr_r; 
-			parent_info.x &= 0x0ffffff;	// only 28 bits 
+			parent_info.x &= 0x0FFFFFF;	// only 28 bits 
 			
 			// Write split axis (2 bits) to most significant two bits. Leave custom bits 28, 29 alone.
-			parent_info.y |= (split_axis << 30); 
+			parent_info.x |= (split_axis << 30); 
 			parent_info.y = *(uint32*)&split_pos; 
 			kd_data.d_preorder_tree[my_addr+1] = parent_info.x;
 			kd_data.d_preorder_tree[my_addr+2] = parent_info.y; 
@@ -1355,7 +1378,7 @@ __global__ void kernel_traversal_down_path(c_kd_final_node_list final_list,
 
 			// Write element indices to preorder tree.
 			for (uint32 i = 0; i < num_elems; ++i)
-				kd_data.d_preorder_tree[my_addr+i] = final_list.d_elem_node_assoc[idx_first_tri+i]; 
+				kd_data.d_preorder_tree[my_addr+2+i] = final_list.d_elem_node_assoc[idx_first_tri+i]; 
 		}
 
 		// Compute and write node extent (center, radius).
@@ -1625,7 +1648,10 @@ void kernel_wrapper_find_best_split(const c_kd_node_list& active_list,
 	// Set maximum query radius.
 	cuda_safe_call_no_sync(cudaMemcpyToSymbol("k_max_query_radius", &max_query_radius, sizeof(float)));
 
-	kernel_find_best_splits<num_elem_pts><<<grid_size, block_size>>>(active_list, split_list, d_out_best_split, d_out_split_cost);  
+	kernel_find_best_splits<num_elem_pts><<<grid_size, block_size>>>(active_list, 
+																	split_list, 
+																	d_out_best_split, 
+																	d_out_split_cost);  
 }
 
 extern "C"
@@ -1678,20 +1704,23 @@ void kernel_wrapper_gen_ena_from_masks(c_kd_node_list& active_list, const c_kd_n
 	
 	// Convert next list to internal representation.
 	kd_ena_node_list small_roots_internal; 
+	small_roots_internal.num_nodes = small_roots.num_nodes; 
 	small_roots_internal.d_num_elems = small_roots.d_num_elems_array; 
 	small_roots_internal.d_idx_first_elem = small_roots.d_first_elem_idx; 
 	small_roots_internal.d_idx_small_root = small_roots.d_small_root_idx; 
 	small_roots_internal.d_elem_marks = small_roots.d_elem_mask; 
-	small_roots_internal.d_elem_node_assoc = small_roots.d_num_elems_array; 
+	small_roots_internal.d_elem_node_assoc = small_roots.d_node_elems_list; 
 
 	kd_ena_node_list active_list_internal; 
+	active_list_internal.num_nodes = small_roots.num_nodes;
 	active_list_internal.d_num_elems = active_list.d_num_elems_array; 
 	active_list_internal.d_idx_first_elem = active_list.d_first_elem_idx; 
 	active_list_internal.d_idx_small_root = active_list.d_small_root_idx; 
 	active_list_internal.d_elem_marks = active_list.d_elem_mask; 
-	active_list_internal.d_elem_node_assoc = active_list.d_num_elems_array; 
+	active_list_internal.d_elem_node_assoc = active_list.d_node_elems_list; 
 
-	kernel_gen_ena_from_masks<<<grid_size, block_size>>>(active_list_internal, small_roots_internal); 
+	kernel_gen_ena_from_masks<<<grid_size, block_size>>>(active_list_internal, small_roots_internal);
+	CUDA_CHECKERROR;
 }
 
 extern "C"

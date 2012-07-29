@@ -14,6 +14,9 @@
 /// Maximum number of elements for small nodes given by ::ElementMask.
 #define KD_SMALL_NODE_MAX	64
 
+/// Maximum kd-tree height. Used to limit traversal stacks to fixed size.
+#define KD_MAX_HEIGHT		50
+
 // Element mask type used for element bit masks in small node stage. Currently up to 64 bit.
 typedef unsigned long long elem_mask_t;
 
@@ -509,7 +512,7 @@ struct c_kdtree_data
 	///			reading it back from GPU memory. 
 	*/ 
 	// ---------------------------------------------------------------------
-	void initialize(c_kd_final_node_list *list, float3 aabb_min, float3 aabb_max);
+	void initialize(c_kd_final_node_list *final_list, float3 aabb_min, float3 aabb_max);
 
 	bool is_empty() const { return num_nodes == 0; }
 
@@ -535,7 +538,7 @@ struct c_kdtree_data
 	///			only having data in "unordered" array, e.g. when setting custom bits. 
 	*/ 
 	// ---------------------------------------------------------------------
-	uint32 *d_node_addresses_array;
+	uint32 *d_node_addresses;
 
 	// ---------------------------------------------------------------------
 	/*

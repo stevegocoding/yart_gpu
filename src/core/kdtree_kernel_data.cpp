@@ -51,7 +51,7 @@ void c_kd_node_list::append_list(c_kd_node_list *nodes_list, bool append_data)
 	assert(nodes_list);
 	
 	// Resize node data if required.
-	if (num_nodes + nodes_list->num_nodes)
+	if (num_nodes + nodes_list->num_nodes > max_nodes)
 	{
 		resize_node_data(num_nodes + nodes_list->num_nodes);
 	}
@@ -104,6 +104,7 @@ void c_kd_node_list::append_list(c_kd_node_list *nodes_list, bool append_data)
 									nodes_list->d_child_left,
 									nodes_list->num_nodes*sizeof(uint32), 
 									cudaMemcpyDeviceToDevice));
+	cuda_constant_add<uint32>(d_child_left + num_nodes, nodes_list->num_nodes, num_nodes + nodes_list->num_nodes); 
 	cuda_safe_call_no_sync(cudaMemcpy(d_child_right + num_nodes, 
 									nodes_list->d_child_right, 
 									nodes_list->num_nodes*sizeof(uint32), 
@@ -140,10 +141,11 @@ void c_kd_node_list::append_list(c_kd_node_list *nodes_list, bool append_data)
 										nodes_list->next_free_pos*sizeof(float4), 
 										cudaMemcpyDeviceToDevice));
 		
-		cuda_safe_call_no_sync(cudaMemcpy(d_elem_point2 + next_free_pos, 
-										nodes_list->d_elem_point2, 
-										nodes_list->next_free_pos*sizeof(float4), 
-										cudaMemcpyDeviceToDevice));
+		if (num_elem_points == 2)
+			cuda_safe_call_no_sync(cudaMemcpy(d_elem_point2 + next_free_pos, 
+											nodes_list->d_elem_point2, 
+											nodes_list->next_free_pos*sizeof(float4), 
+											cudaMemcpyDeviceToDevice));
 		
 		// Shift first element indices in d_idxFirstElem for new nodes.
 		if (next_free_pos != 0)
@@ -486,12 +488,59 @@ void c_kd_split_list::free_memory()
 
 //////////////////////////////////////////////////////////////////////////
 
-void c_kdtree_data::initialize(c_kd_final_node_list *list, float3 aabb_min, float3 aabb_max)
+void c_kdtree_data::initialize(c_kd_final_node_list *final_list, float3 aabb_min, float3 aabb_max)
 {
+	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
+	num_nodes = final_list->num_nodes;
 	
+	// Set root bounds. Read them from root node's tight bounds.
+	aabb_root_min = aabb_min; 
+	aabb_root_max = aabb_max;
+	
+	// Use texture request here since we use the data for linear texture memory and therefore
+	// need special alignment.
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_num_elems, 
+												num_nodes*sizeof(uint32), "kd-tree result"));
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_node_addresses, 
+												num_nodes*sizeof(uint32), "kd-tree result"));
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_node_extent, 
+												num_nodes*sizeof(float4), "kd-tree result"));
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_child_left, 
+												num_nodes*sizeof(uint32), "kd-tree result")); 
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_child_right, 
+												num_nodes*sizeof(uint32), "kd-tree result"));
+	
+	// Copy in element counts and left/right indices. Other data is initialized later.
+	cuda_safe_call_no_sync(cudaMemcpy(d_num_elems, 
+									final_list->d_num_elems,
+									final_list->num_nodes*sizeof(uint32), 
+									cudaMemcpyDeviceToDevice));
+	cuda_safe_call_no_sync(cudaMemcpy(d_child_left, 
+									final_list->d_child_left, 
+									final_list->num_nodes*sizeof(uint32),
+									cudaMemcpyDeviceToDevice));
+	cuda_safe_call_no_sync(cudaMemcpy(d_child_right,
+									final_list->d_child_right, 
+									final_list->num_nodes*sizeof(uint32), 
+									cudaMemcpyDeviceToDevice));
+	
+	size_tree = 0; 
+	d_preorder_tree = NULL;
 }
 
 void c_kdtree_data::free_memory()
 {
+	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
 	
+	cuda_safe_call_no_sync(mem_pool.release(d_num_elems)); 
+	cuda_safe_call_no_sync(mem_pool.release(d_node_addresses));
+	cuda_safe_call_no_sync(mem_pool.release(d_node_extent)); 
+	cuda_safe_call_no_sync(mem_pool.release(d_child_left)); 
+	cuda_safe_call_no_sync(mem_pool.release(d_child_right)); 
+	
+	if (d_preorder_tree)
+		cuda_safe_call_no_sync(mem_pool.release(d_preorder_tree)); 
+	
+	size_tree = 0; 
+	num_nodes = 0; 
 }

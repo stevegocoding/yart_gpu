@@ -14,7 +14,7 @@ void kernel_wrapper_do_split_clipping(const c_kd_node_list& active_list,
 
 
 c_kdtree_triangle::c_kdtree_triangle(const c_triangle_data& tri_data)
-	: c_kdtree_gpu(tri_data.num_tris, 2, tri_data.aabb_min, tri_data.aabb_max, 0.25f, 9)
+	: c_kdtree_gpu(tri_data.num_tris, 2, tri_data.aabb_min, tri_data.aabb_max, 0.25f, 64)
 	, m_tri_data(&tri_data)
 {
 }

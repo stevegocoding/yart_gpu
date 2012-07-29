@@ -206,17 +206,31 @@ bool c_kdtree_gpu::build_tree()
 	// Create and add root node
 	add_root_node(m_active_node_list);
 	
+	others_ofs << "###########################################################################" << std::endl; 
+	others_ofs << "LARGE NODE STAGE" << std::endl; 
+	others_ofs << "###########################################################################" << std::endl;
+
+	active_ofs << "###########################################################################" << std::endl; 
+	active_ofs << "LARGE NODE STAGE" << std::endl; 
+	active_ofs << "###########################################################################" << std::endl;
+
 	// Large node stage
 	large_node_stage();
 
-	// Small node stage
-	// small_node_stage();
+	others_ofs << "###########################################################################" << std::endl; 
+	others_ofs << "SMALL NODE STAGE" << std::endl; 
+	others_ofs << "###########################################################################" << std::endl; 
 
-	/* 
+	active_ofs << "###########################################################################" << std::endl; 
+	active_ofs << "SMALL NODE STAGE" << std::endl; 
+	active_ofs << "###########################################################################" << std::endl;
+
+	// Small node stage
+	small_node_stage();
+
 	// Generates final node list m_pKDData.
 	preorder_traversal(); 
-	*/ 
-
+	
 	chunk_ofs.close(); 
 	active_ofs.close();
 	
@@ -272,7 +286,11 @@ void c_kdtree_gpu::small_node_stage()
 
 	m_active_node_list->clear(); 
 	m_active_node_list->append_list(m_small_node_list, true); 
-	while (m_active_node_list->is_empty())
+	
+	active_ofs << "Active list: " << std::endl; 
+	print_node_list(active_ofs, m_active_node_list);
+	
+	while (!m_active_node_list->is_empty())
 	{
 		// NOTE: The paper tells to append the active list to the final node list here.
 		//		 I do not follow since this way the changes (children, ...) won't
@@ -337,12 +355,21 @@ void c_kdtree_gpu::pre_process_small_nodes()
 									cudaMemcpyDeviceToDevice));
 	cuda_constant_mul<uint32>(m_split_list->d_num_splits, m_small_node_list->num_nodes, m_small_node_list->num_elem_points*3);
 	
+	others_ofs << "Splits counts: " << std::endl;
+	print_device_array(others_ofs, m_split_list->d_num_splits, m_small_node_list->num_nodes); 
+	
 	// Align split counts before scanning to get aligned split offsets.
 	cuda_align_counts(d_aligned_split_counts.buf_ptr(), m_split_list->d_num_splits, m_small_node_list->num_nodes); 
 
+	others_ofs << "Splits counts (aligned): " << std::endl;
+	print_device_array(others_ofs, d_aligned_split_counts.buf_ptr(), m_small_node_list->num_nodes); 
+	
 	// Compute offsets from counts using scan.
 	cuda_scan(d_aligned_split_counts.buf_ptr(), m_small_node_list->num_nodes, false, m_split_list->d_first_split_idx);
 
+	others_ofs << "First split idx: " << std::endl; 
+	print_device_array(others_ofs, m_split_list->d_first_split_idx, m_small_node_list->num_nodes); 
+	
 	// Get number of entries required for split list.
 	// NOTE: Reduction is currently required because alignment prevents from simply
 	//       calculating the total number.
@@ -367,18 +394,27 @@ void c_kdtree_gpu::pre_process_small_nodes()
 	else
 		kernel_wrapper_init_split_masks<2>(*m_small_node_list, m_small_nodes_max, *m_split_list);
 
+	chunk_ofs << "Splits: " << std::endl; 
+	print_splits_list(chunk_ofs, m_split_list, m_small_node_list); 
+	
 	// Initialize small list extra data (d_elemMask, d_idxSmallRoot). We just set the masks
 	// completely (even if there are less elements in the node) to allow the use of
 	// cudaMemset.
 	cuda_init_identity(m_small_node_list->d_small_root_idx, m_small_node_list->num_nodes); 
-	cuda_safe_call_no_sync(cudaMemset(m_small_node_list->d_elem_mask, 0xff, m_small_node_list->num_nodes*sizeof(elem_mask_t)));
+	cuda_safe_call_no_sync(cudaMemset(m_small_node_list->d_elem_mask, 
+									0xff, 
+									m_small_node_list->num_nodes*sizeof(elem_mask_t)));
 
 	// We now need to update small root parents in m_pListFinal. This is neccessary to
 	// retain the connection between large tree and small root trees. It is assumed
 	// here that the small root nodes are added right after the current m_pListFinal
 	// last node.
-	kernel_wrapper_update_small_root_parents(*m_final_list, d_small_root_parents, m_small_node_list->num_nodes); 
+	kernel_wrapper_update_small_root_parents(*m_final_list, 
+											d_small_root_parents, 
+											m_small_node_list->num_nodes); 
 
+	active_ofs << "Final list: " << std::endl; 
+	print_final_node_list(active_ofs, m_final_list); 
 }
 
 void c_kdtree_gpu::process_small_nodes()
@@ -401,8 +437,14 @@ void c_kdtree_gpu::process_small_nodes()
 										d_best_splits.buf_ptr(), 
 										d_min_sahs.buf_ptr());
 
+	others_ofs << "d_best_splits: " << std::endl; 
+	print_device_array(others_ofs, d_best_splits.buf_ptr(), m_active_node_list->num_nodes);
+	
+	others_ofs << "d_min_sahs: " << std::endl; 
+	print_device_array(others_ofs, d_min_sahs.buf_ptr(), m_active_node_list->num_nodes);
+
 	// Resize node data if required.
-	if (m_next_node_list->num_nodes < 2 * m_active_node_list->num_nodes)
+	if (m_next_node_list->max_nodes < 2 * m_active_node_list->num_nodes)
 		m_next_node_list->resize_node_data(2*m_active_node_list->num_nodes); 
 	
 	// Generate children into next list. The result contains the left result in the first
@@ -417,6 +459,17 @@ void c_kdtree_gpu::process_small_nodes()
 									d_is_split.buf_ptr());
 	
 	uint32 *d_child_offsets = d_best_splits.buf_ptr();
+
+	others_ofs << "d_is_split: " << std::endl;
+	print_device_array(others_ofs, d_is_split.buf_ptr(), m_active_node_list->num_nodes); 
+
+	active_ofs << "Active list (after split small): " << std::endl;
+	print_node_list(active_ofs, m_active_node_list); 
+
+	active_ofs << "Next list (after split small): " << std::endl;
+	print_node_list(active_ofs, m_next_node_list); 
+	
+	
 	// The child data is invalid cause we compact the next list later. Therefore both left
 	// and right child indices have to be updated. This can be done by scanning the inverse
 	// of the isSplit array. Example:
@@ -428,20 +481,20 @@ void c_kdtree_gpu::process_small_nodes()
 	// 0 1 2 2 3 4 (scan not isSplit)
 	// 0 0 2 0 0 4 (isSplit * (scan not isSplit))
 	// 0 0 0 0 0 1 (Left := Identity - scan not isSplit)
-	cuda_inverse_binary(d_is_split.buf_ptr(), m_active_node_list->num_nodes); 
 
+	// not split
+	cuda_inverse_binary(d_is_split.buf_ptr(), m_active_node_list->num_nodes); 
+	// scan not split 
 	cuda_scan(d_is_split.buf_ptr(), m_active_node_list->num_nodes, false, d_child_offsets); 
-	
+	// is split 
 	cuda_inverse_binary(d_is_split.buf_ptr(), m_active_node_list->num_nodes); 
-	cuda_array_op<cuda_op_mul, uint32>(d_child_offsets, d_is_split.buf_ptr(), m_active_node_list->num_nodes); 
-
-	cuda_init_identity(m_active_node_list->d_child_left, m_active_node_list->num_nodes); 
 	cuda_array_op<cuda_op_mul, uint32>(d_child_offsets, d_is_split.buf_ptr(), m_active_node_list->num_nodes); 
 
 	cuda_init_identity(m_active_node_list->d_child_left, m_active_node_list->num_nodes); 
 	cuda_array_op<cuda_op_mul, uint32>(m_active_node_list->d_child_left, d_is_split.buf_ptr(), m_active_node_list->num_nodes); 
 	cuda_array_op<cuda_op_sub, uint32>(m_active_node_list->d_child_left, d_child_offsets, m_active_node_list->num_nodes); 
 
+	// Get left (and right) child count. 
 	uint32 num_splits;
 	cuda_reduce_add(num_splits, (uint32*)d_is_split.buf_ptr(), m_active_node_list->num_nodes, (uint32)0); 
 	
@@ -465,6 +518,9 @@ void c_kdtree_gpu::process_small_nodes()
 	
 	// Child data is up to date. Append to final node list.
 	m_final_list->append_list(m_active_node_list, true, false);
+
+	active_ofs << "Final list (after split small nodes): " << std::endl; 
+	print_final_node_list(active_ofs, m_final_list); 
 
 	uint32 num_nodes_old = m_active_node_list->num_nodes; 
 	m_active_node_list->clear(); 
@@ -531,9 +587,9 @@ void c_kdtree_gpu::process_small_nodes()
 			m_active_node_list->resize_elem_data(2*CUDA_ALIGN(num_elems)); 
 
 		m_active_node_list->next_free_pos = CUDA_ALIGN(num_elems); 
-	}
 
-	kernel_wrapper_gen_ena_from_masks(*m_active_node_list, *m_small_node_list); 
+		kernel_wrapper_gen_ena_from_masks(*m_active_node_list, *m_small_node_list); 
+	}
 }
 
 void c_kdtree_gpu::preorder_traversal()
@@ -567,14 +623,34 @@ void c_kdtree_gpu::preorder_traversal()
 
 	// Allocate preorder tree. Use special request for alignment.
 	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance(); 
-	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&m_kd_data->d_preorder_tree, m_kd_data->size_tree*sizeof(uint32), "kd-tree_result"));
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&m_kd_data->d_preorder_tree, 
+												m_kd_data->size_tree*sizeof(uint32), 
+												"kd-tree_result"));
 	
+	// Initialize root nodes address.
+	cuda_safe_call_no_sync(cudaMemset(m_kd_data->d_node_addresses, 0, sizeof(uint32))); 
+
 	// Top-down traversal to generate tree from sizes.
 	for (uint32 lvl = 0; lvl <= max_level; ++lvl)
 	{
 		// Generate preorder tree.
-		kernel_wrapper_traversal_down_path(*m_final_list, lvl, d_node_sizes.buf_ptr(), m_kd_data->d_node_addresses_array, *m_kd_data); 
+		kernel_wrapper_traversal_down_path(*m_final_list, lvl, 
+										d_node_sizes.buf_ptr(), 
+										m_kd_data->d_node_addresses, 
+										*m_kd_data); 
 	} 
+
+	others_ofs << "Node addresses: " << std::endl; 
+	print_device_array(others_ofs, m_kd_data->d_node_addresses, m_kd_data->num_nodes); 
+
+	others_ofs << "Preorder data: " << std::endl; 
+	print_device_array(others_ofs, m_kd_data->d_preorder_tree, m_kd_data->size_tree); 
+	
+	active_ofs << "KDTree Data: " << std::endl; 
+	print_kdtree_preorder_data(active_ofs, m_kd_data, m_final_list); 
+
+	active_ofs << "KDTree Data(2): " << std::endl; 
+	print_kdtree_data(active_ofs, m_kd_data); 
 }
 
 void c_kdtree_gpu::compute_nodes_aabbs()
@@ -1019,12 +1095,7 @@ void c_kdtree_gpu::update_small_list(uint32 *d_final_list_index_active)
 								*m_small_node_list, 
 								d_node_marks.buf_ptr(), 
 								d_node_list_offsets.buf_ptr(), 
-								true);
-
-		m_small_node_list->num_nodes += num_small;
-		active_ofs << "Small list (1): " << std::endl; 
-		print_node_list(active_ofs, m_small_node_list); 
-		m_small_node_list->num_nodes -= num_small; 
+								true); 
 
 		// Need to update left & right child pointers in current active list here. This is
 		// neccessary since we remove the small nodes and the current pointers point to
