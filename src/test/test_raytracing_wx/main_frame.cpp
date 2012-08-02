@@ -1,29 +1,31 @@
 #include "wx/config.h" 
-
+#include "il/il.h" 
 #include <cuda_runtime.h>
 
 #include "main_frame.h"
 #include "cuda_canvas.h"
 #include "renderer.h"
 #include "utils.h"
+#include "wx_utils.h"
 #include "assimp_loader.h" 
 
 enum
 {
 	IDM_LOADING = 1, 
+	IDM_SAVEIMAGE, 
 	IDM_SHOWLOG 
 };
 
 BEGIN_EVENT_TABLE(c_main_frame, wxFrame)
 	EVT_CLOSE(c_main_frame::on_close)
 	EVT_MENU(IDM_SHOWLOG, c_main_frame::on_show_log)
-
+	EVT_MENU(IDM_SAVEIMAGE, c_main_frame::on_save_img)
 	EVT_MENU(IDM_LOADING, c_main_frame::on_load_scene) 
 	
 END_EVENT_TABLE()
 
 c_main_frame::c_main_frame(const wxString& title, const wxSize& size)
-	: wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, wxDefaultSize)
+	: wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, size)
 {
 	// Create log window
 	m_log_wnd = new wxLogWindow(this, L"Log", false, true); 
@@ -32,13 +34,13 @@ c_main_frame::c_main_frame(const wxString& title, const wxSize& size)
 	m_log_wnd->GetFrame()->SetSize(650, 500); 
 	m_log_wnd->Show(); 
 
-	// Create menu bar 
-	create_menu_bar();
-
 	// Create file history
 	m_file_history = new wxFileHistory(6);
 	m_file_history->Load(*wxConfig::Get()); 
-	
+
+	// Create menu bar 
+	create_menu_bar();
+
 	// Create CUDA canvas
 	if(!check_for_cuda())
 	{
@@ -147,19 +149,32 @@ bool c_main_frame::load_scene_from_file(const wxString& file_name)
 
 bool c_main_frame::unload_scene()
 {
+	if (!m_renderer)
+		return false; 
+	
+	m_renderer.reset();
+	m_scene.reset(); 
 	
 	return true; 
 }
 
 void c_main_frame::create_menu_bar()
 {
+	m_menu_recent = new wxMenu(); 
+	m_file_history->UseMenu(m_menu_recent); 
+	m_file_history->AddFilesToMenu(m_menu_recent); 
+	
 	// File menu
 	m_menu_file = new wxMenu(); 
 	m_menu_file->Append(IDM_LOADING, _("&Load Scene"), _("Load a scene from file"));  
+	m_menu_file->AppendSeparator();
+	m_menu_file->Append(IDM_SAVEIMAGE, _("Save &Image"), _("Saves current image to file"));
+	m_menu_file->AppendSeparator();
+	m_menu_file->AppendSubMenu(m_menu_recent, _("&Recent Models")); 
 	m_menu_file->Append(wxID_EXIT); 
-
 	wxMenuBar *menu_bar = new wxMenuBar();
 	menu_bar->Append(m_menu_file, _("&File")); 
+
 	SetMenuBar(menu_bar); 
 }
 
@@ -210,4 +225,53 @@ void c_main_frame::on_load_scene(wxCommandEvent& event)
 		if(load_scene_from_file(pFD->GetPath()))
 			reinit_renderer(); 
 	}
+}
+
+void c_main_frame::on_save_img(wxCommandEvent& event)
+{
+	if (!m_cuda_canvas)
+		return;
+	
+	wxString strWildcard;
+	strWildcard += _("Portable Network Graphics (*.png)|*.png|");
+	strWildcard += _("Windows Bitmap (*.bmp)|*.bmp|");
+	strWildcard += _("Jpeg (*.jpg)|*.jpg|");
+	strWildcard += _("All files (*.*)|*.*");
+
+	// Show file dialog to get target file name.
+	wxFileDialog* pFD = new wxFileDialog(this, _("Select destination for image"), wxEmptyString, wxEmptyString,
+		strWildcard, wxFD_SAVE|wxFD_OVERWRITE_PROMPT);
+	if(pFD->ShowModal() != wxID_OK)
+		return;
+	
+	ILuint handle_img;
+
+	// Generate the image and bind to handle 
+	ilGenImages(1, &handle_img); 
+	ilBindImage(handle_img); 
+
+	// Set pixels from screen buffer 
+	wxSize screen_size = m_cuda_canvas->get_screen_size(); 
+	uchar4 *pixel_data = new uchar4[screen_size.GetWidth()*screen_size.GetHeight()]; 
+	m_cuda_canvas->get_current_image(pixel_data); 
+	ilTexImage(screen_size.GetWidth(), screen_size.GetHeight(), 1, 4, IL_RGBA, IL_UNSIGNED_BYTE, pixel_data); 
+	
+	SAFE_DELETE_ARRAY(pixel_data); 
+	
+	// Remove alpha channel.
+	if (!ilConvertImage(IL_RGB, IL_UNSIGNED_BYTE))
+	{
+		wx_log_error(wxT("Failed to save image. Conversion failed."));
+		ilDeleteImages(1, &handle_img); 
+		return; 
+	}
+	
+	// Save image to chosen file.
+	//ilEnable(IL_FILE_OVERWRITE); 
+	wchar_t *str_path = pFD->GetPath().wchar_str();
+	std::wstring str(str_path); 
+	if (!ilSaveImage(str.c_str()))
+		wx_log_error(wxT("Failed to save image: %s."), pFD->GetPath().mb_str());
+
+	ilDeleteImages(1, &handle_img);
 }

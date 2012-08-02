@@ -8,6 +8,8 @@ set(UI_FILES
 	cuda_canvas.h
 	main_frame.cpp
 	main_frame.h
+	wx_utils.cpp
+	wx_utils.h
 	)
 
 if(WIN32)
@@ -37,6 +39,12 @@ target_link_libraries(${TARGET} debug assimp_d.lib)
 target_link_libraries(${TARGET} optimized assimp.lib)
 target_link_libraries(${TARGET} debug glew32.lib)
 target_link_libraries(${TARGET} optimized glew32.lib)
+target_link_libraries(${TARGET} debug DevIL.lib)
+target_link_libraries(${TARGET} optimized DevIL.lib)
+target_link_libraries(${TARGET} debug ILU.lib)
+target_link_libraries(${TARGET} optimized ILU.lib)
+target_link_libraries(${TARGET} debug ILUT.lib)
+target_link_libraries(${TARGET} optimized ILUT.lib)
 target_link_libraries(${TARGET} debug cuda.lib)
 target_link_libraries(${TARGET} optimized cuda.lib)
 target_link_libraries(${TARGET} debug cudart.lib)

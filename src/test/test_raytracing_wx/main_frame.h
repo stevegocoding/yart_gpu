@@ -39,6 +39,7 @@ private:
 	void on_close(wxCloseEvent& event); 
 	void on_show_log(wxCommandEvent& event); 
 	void on_load_scene(wxCommandEvent& event); 
+	void on_save_img(wxCommandEvent& event);
 
 	bool load_scene_from_file(const wxString& file_name); 
 	bool unload_scene();
@@ -51,7 +52,13 @@ private:
 	renderer_ptr m_renderer;
 	c_cuda_canvas *m_cuda_canvas; 
 	int m_cuda_device_id; 
-	
+
+	// ---------------------------------------------------------------------
+	/* Stats
+	*/ 
+	// ---------------------------------------------------------------------
+	bool m_single_frame; 
+
 	// ---------------------------------------------------------------------
 	/* wxWidgets Objects
 	*/ 
@@ -59,7 +66,7 @@ private:
 	wxLogWindow *m_log_wnd;
 	wxFileHistory *m_file_history; 
 	wxMenu *m_menu_file;
-	
+	wxMenu *m_menu_recent; 
 	
 	DECLARE_EVENT_TABLE()
 	

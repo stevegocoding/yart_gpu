@@ -3,8 +3,8 @@
 #include "utils.h"
 
 #define APP_TITLE "YART GPU App"
-#define SCREEN_W		1024
-#define SCREEN_H		1024
+#define SCREEN_W		512
+#define SCREEN_H		512
 
 IMPLEMENT_APP(c_wx_app) 
 

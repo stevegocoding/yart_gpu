@@ -24,6 +24,7 @@ public:
 	void render();
 
 	wxSize get_screen_size() const { return m_screen_size; }
+	void get_current_image(uchar4 *pixel_data);
 
 private:
 
@@ -33,7 +34,6 @@ private:
 	// ---------------------------------------------------------------------
 	void OnPaint(wxPaintEvent& event);
 	void OnEraseBackground(wxEraseEvent& event); 
-
 
 	void set_enable_vsync(bool is_enable);
 	

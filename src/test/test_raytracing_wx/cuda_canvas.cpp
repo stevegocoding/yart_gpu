@@ -6,6 +6,7 @@
 #include "cuda_canvas.h"
 #include "main_frame.h"
 #include "utils.h"
+#include "wx_utils.h" 
 
 // Device context attribute list for wxGLCanvas
 // "Note that all the attributes need to be set in the attribList. Just setting the 
@@ -38,6 +39,18 @@ c_cuda_canvas::c_cuda_canvas(c_main_frame *parent,
 c_cuda_canvas::~c_cuda_canvas()
 {
 	destroy_gl_cuda();
+}
+
+void c_cuda_canvas::get_current_image(uchar4 *pixel_data)
+{
+	if (!GetContext())
+	{
+		wx_log_fatal(wxT("Failed to get OpenGL context!")); 
+	}
+	
+	glBindTexture(GL_TEXTURE_2D, m_gl_tex); 
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data);
+	glBindTexture(GL_TEXTURE_2D, 0); 
 }
 
 void c_cuda_canvas::init_gl_cuda()
