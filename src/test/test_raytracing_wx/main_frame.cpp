@@ -13,6 +13,7 @@ enum
 {
 	IDM_LOADING = 1, 
 	IDM_SAVEIMAGE, 
+	IDM_BENCHMARK_RT, 
 	IDM_SHOWLOG 
 };
 
@@ -21,6 +22,7 @@ BEGIN_EVENT_TABLE(c_main_frame, wxFrame)
 	EVT_MENU(IDM_SHOWLOG, c_main_frame::on_show_log)
 	EVT_MENU(IDM_SAVEIMAGE, c_main_frame::on_save_img)
 	EVT_MENU(IDM_LOADING, c_main_frame::on_load_scene) 
+	EVT_MENU(IDM_BENCHMARK_RT, c_main_frame::on_benchmark)
 	
 END_EVENT_TABLE()
 
@@ -56,9 +58,16 @@ c_main_frame::~c_main_frame()
 	
 }
 
-void c_main_frame::reinit_renderer()
+bool c_main_frame::reinit_renderer(bool update)
 {
+	if (!m_scene)
+		return false; 
+	
 	m_renderer.reset(new c_renderer(m_scene));
+	
+	m_cuda_canvas->Refresh();
+	
+	return true; 
 }
 
 void c_main_frame::render(uchar4 *d_buf)
@@ -139,7 +148,13 @@ bool c_main_frame::load_scene_from_file(const wxString& file_name)
 {
 	unload_scene();
 
+	triangle_meshes2_array tri_mesh;
+	c_aabb bounds; 
 	assimp_import_scene(std::string(file_name.mb_str()), &ai_scene);
+	assimp_load_meshes2(ai_scene, tri_mesh, bounds);
+	
+	
+	
 	
 	if (file_name.IsEmpty())
 		m_file_history->AddFileToHistory(file_name); 
@@ -163,6 +178,9 @@ void c_main_frame::create_menu_bar()
 	m_menu_recent = new wxMenu(); 
 	m_file_history->UseMenu(m_menu_recent); 
 	m_file_history->AddFilesToMenu(m_menu_recent); 
+
+	wxMenu *menu_bench = new wxMenu();
+	menu_bench->Append(IDM_BENCHMARK_RT, _("&Ray Tracing"));
 	
 	// File menu
 	m_menu_file = new wxMenu(); 
@@ -174,6 +192,11 @@ void c_main_frame::create_menu_bar()
 	m_menu_file->Append(wxID_EXIT); 
 	wxMenuBar *menu_bar = new wxMenuBar();
 	menu_bar->Append(m_menu_file, _("&File")); 
+
+	// Render menu
+	m_menu_render = new wxMenu();
+	m_menu_render->AppendSubMenu(menu_bench, _("&Benchmark")); 
+	menu_bar->Append(m_menu_render, _("&Render")); 
 
 	SetMenuBar(menu_bar); 
 }
@@ -274,4 +297,12 @@ void c_main_frame::on_save_img(wxCommandEvent& event)
 		wx_log_error(wxT("Failed to save image: %s."), pFD->GetPath().mb_str());
 
 	ilDeleteImages(1, &handle_img);
+}
+
+void c_main_frame::on_benchmark(wxCommandEvent& event)
+{
+	if (event.GetId() == IDM_BENCHMARK_RT)
+	{
+		reinit_renderer();
+	}
 }

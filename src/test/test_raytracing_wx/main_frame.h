@@ -25,7 +25,7 @@ public:
 	c_main_frame(const wxString& title, const wxSize& size);
 	virtual ~c_main_frame();
 
-	void reinit_renderer();
+	bool reinit_renderer(bool update = false);
 	void render(uchar4 *d_buf); 
 	bool need_update() const; 
 
@@ -40,6 +40,7 @@ private:
 	void on_show_log(wxCommandEvent& event); 
 	void on_load_scene(wxCommandEvent& event); 
 	void on_save_img(wxCommandEvent& event);
+	void on_benchmark(wxCommandEvent& event);
 
 	bool load_scene_from_file(const wxString& file_name); 
 	bool unload_scene();
@@ -67,6 +68,7 @@ private:
 	wxFileHistory *m_file_history; 
 	wxMenu *m_menu_file;
 	wxMenu *m_menu_recent; 
+	wxMenu *m_menu_render; 
 	
 	DECLARE_EVENT_TABLE()
 	
