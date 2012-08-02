@@ -2,6 +2,7 @@
 #include <cutil_inline.h>
 #include <cuda_gl_interop.h>
 
+#include "cuda_utils.h"
 #include "cuda_canvas.h"
 #include "main_frame.h"
 #include "utils.h"
@@ -27,10 +28,11 @@ c_cuda_canvas::c_cuda_canvas(c_main_frame *parent,
 							const wxPoint& pos /* = wxDefaultPosition */, 
 							const wxSize& size /* = wxDefaultSize */)
 							: wxGLCanvas(parent, (wxGLCanvas*)NULL, id, pos, size, wxFULL_REPAINT_ON_RESIZE, _T("CUDA GLCanvas"), f_devAttribs)
+							, m_main_frame(parent) 
 							, m_is_inited(false)
+							, m_screen_size(size)
 {
 	// SetBackgroundColour(wxColour(0)); 
-	// init_gl_cuda();
 }
 
 c_cuda_canvas::~c_cuda_canvas()
@@ -53,7 +55,7 @@ void c_cuda_canvas::init_gl_cuda()
 	SetCurrent();
 	
 	// Required for VBO stuff.
-	glewInit();
+	GLuint err2 = glewInit();
 	if (!glewIsSupported("GL_VERSION_2_0"))
 		assert(false);
 	
@@ -73,8 +75,7 @@ void c_cuda_canvas::init_gl_cuda()
 	glBindBuffer(GL_ARRAY_BUFFER, 0); 
 	
 	// Register this buffer object with CUDA
-	err = cudaGraphicsGLRegisterBuffer(&m_cuda_vbo_res, m_gl_vbo, cudaGraphicsMapFlagsNone); 
-	assert(err == cudaSuccess);
+	cuda_safe_call_no_sync(cudaGraphicsGLRegisterBuffer(&m_cuda_vbo_res, m_gl_vbo, cudaGraphicsMapFlagsNone));
 	
 	// Render target texture
 	glGenTextures(1, &m_gl_tex);
@@ -95,18 +96,18 @@ void c_cuda_canvas::init_gl_cuda()
 
 void c_cuda_canvas::destroy_gl_cuda()
 {
-	cudaError_t err; 
-
 	if (!m_is_inited)
 		return; 
 	
-	err = cudaGraphicsUnregisterResource(m_cuda_vbo_res);
+	cuda_safe_call_no_sync(cudaGraphicsUnregisterResource(m_cuda_vbo_res));
 	
 	glDeleteBuffers(1, &m_gl_vbo); 
 	glDeleteTextures(1, &m_gl_tex);
 	
 	m_gl_vbo = 0; 
 	m_gl_tex = 0; 	
+
+	m_is_inited = false;
 }
 
 void c_cuda_canvas::render()
@@ -146,9 +147,8 @@ void c_cuda_canvas::render()
 	}
 
 	// Draw a full-screen quad with the texture
-	glEnable(GL_TEXTURE_2D);
+	// glEnable(GL_TEXTURE_2D);
 	
-
 	glBegin(GL_QUADS);
 	glColor3f(1.0f, 0.0f, 0.0f); 
 	glTexCoord2f(0, 0);	glVertex2f(0, 0);
@@ -168,7 +168,10 @@ void c_cuda_canvas::render()
 
 void c_cuda_canvas::OnPaint(wxPaintEvent& event)
 {
-
+	if (!m_is_inited)
+		init_gl_cuda();
+	
+	render();
 }
 
 void c_cuda_canvas::OnEraseBackground(wxEraseEvent& event)

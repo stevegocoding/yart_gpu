@@ -6,6 +6,7 @@
 #include <boost/shared_ptr.hpp>
 #include <vector_types.h>
 #include "wx/wx.h"
+#include "wx/docview.h"			// For wxFileHistory 
 
 class c_cuda_canvas; 
 class c_renderer;
@@ -14,6 +15,9 @@ typedef boost::shared_ptr<c_renderer> renderer_ptr;
 class c_scene; 
 typedef boost::shared_ptr<c_scene> scene_ptr; 
 
+class wxFileHistory; 
+
+
 class c_main_frame : public wxFrame
 {
 
@@ -21,20 +25,23 @@ public:
 	c_main_frame(const wxString& title, const wxSize& size);
 	virtual ~c_main_frame();
 
-	void initialize_renderer();
-	
+	void reinit_renderer();
 	void render(uchar4 *d_buf); 
 	bool need_update() const; 
 
 	/// Returns the ID of the chosen CUDA device.
 	int get_cuda_device_id() const { return m_cuda_device_id; }
-	
 	bool check_for_cuda(); 
+	void create_menu_bar(); 
 	
 private:
-
+	
 	void on_close(wxCloseEvent& event); 
 	void on_show_log(wxCommandEvent& event); 
+	void on_load_scene(wxCommandEvent& event); 
+
+	bool load_scene_from_file(const wxString& file_name); 
+	bool unload_scene();
 	
 	// ---------------------------------------------------------------------
 	/* Renderer Objects 
@@ -50,6 +57,8 @@ private:
 	*/ 
 	// ---------------------------------------------------------------------
 	wxLogWindow *m_log_wnd;
+	wxFileHistory *m_file_history; 
+	wxMenu *m_menu_file;
 	
 	
 	DECLARE_EVENT_TABLE()

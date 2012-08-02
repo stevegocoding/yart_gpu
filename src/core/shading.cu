@@ -4,8 +4,25 @@
 
 texture<float4, 1, cudaReadModeElementType> tex_tri_v0, tex_tri_v1, tex_tri_v2; 
 texture<float4, 1, cudaReadModeElementType> tex_tri_n0, tex_tri_n1, tex_tri_n2; 
-
 texture<uint32, 1, cudaReadModeElementType> tex_tri_mat_idx; 
+
+__global__ void kernel_float4_to_rgba(float4 *d_in_radiance, 
+									uint32 num_pixels, 
+									uchar4 *d_out_screen_buf)
+{
+	uint32 tid = blockIdx.x * blockDim.x + threadIdx.x; 
+
+	if (tid < num_pixels)
+	{
+		float4 l = d_in_radiance[tid]; 
+		
+		uchar4 pix;
+		pix.x = (uchar)fminf(255.f, 255.f * l.x); 
+		pix.y = (uchar)fminf(255.f, 255.f * l.y); 
+		pix.z = (uchar)fminf(255.f, 255.f * l.z);
+		d_out_screen_buf[tid] = pix; 
+	}
+}
 
 __global__ void kernel_get_normal_hit_pt(uint32 count, 
 										int *d_tri_hit_indices,
@@ -68,5 +85,18 @@ void kernel_wrapper_bsdf_get_normal_hit_pt(uint32 count,
 														d_out_normals_geo,
 														d_out_normals_shading); 
 
+	CUDA_CHECKERROR; 
+}
+
+
+extern "C"
+void kernel_wrapper_img_float4_to_rgba(float4 *d_in_radiance, 
+									uint32 num_pixels,
+									uchar4 *d_out_screen_buf)
+{
+	dim3 block_size = dim3(256, 1, 1); 
+	dim3 grid_size = dim3(CUDA_DIVUP(num_pixels, block_size.x), 1, 1); 
+	
+	kernel_float4_to_rgba<<<grid_size, block_size>>>(d_in_radiance, num_pixels, d_out_screen_buf); 
 	CUDA_CHECKERROR; 
 }

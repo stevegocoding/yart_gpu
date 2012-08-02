@@ -38,6 +38,11 @@ void kernel_wrapper_solve_lte(const c_ray_chunk& ray_chunk,
 							float4 *d_io_radiance); 
 
 extern "C"
+void kernel_wrapper_img_float4_to_rgba(float4 *d_in_radiance, 
+									uint32 num_pixels, 
+									uchar4 *d_out_screen_buf);
+
+extern "C"
 void init_raytracing_kernels(); 
 
 extern "C"
@@ -73,6 +78,23 @@ c_renderer::~c_renderer()
 
 bool c_renderer::render_scene(uchar4 *d_screen_buf)
 {
+	if (!rebuild_obj_kdtree())
+	{
+		yart_log_message("Building object kd-tree failed!"); 
+		return false;
+	}
+
+	uint32 screen_w = m_scene->get_cam()->res_x();
+	uint32 screen_h = m_scene->get_cam()->res_y(); 
+	
+	// Render the scene to a buffer
+	c_cuda_memory<float4> d_radiance(screen_w*screen_h, "temp", 256);
+	if (!render_to_buf(d_radiance.buf_ptr()))
+		return false; 
+		
+	// Convert the radiance to the displayable RGB color.
+	kernel_wrapper_img_float4_to_rgba(d_radiance.buf_ptr(), screen_w*screen_h, d_screen_buf); 
+	
 	return true; 
 }
 
