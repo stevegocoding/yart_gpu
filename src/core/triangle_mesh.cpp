@@ -45,6 +45,7 @@ c_triangle_mesh::c_triangle_mesh(const vertices_array& verts,
 c_triangle_mesh2::c_triangle_mesh2(const verts_pos_array pos[3], 
 	const verts_normal_array normals[3], 
 	const verts_uv_array uvs[3], 
+	const face_mat_idx_array mat_idx, 
 	size_t num_faces,
 	size_t num_verts)
 	: m_num_faces(num_faces)
@@ -59,5 +60,17 @@ c_triangle_mesh2::c_triangle_mesh2(const verts_pos_array pos[3],
 		m_normals[i] = normals[i];
 		m_uvs[i] = uvs[i]; 
 	}
+
+	m_mat_idx = mat_idx;
 }
 
+c_triangle_mesh2::~c_triangle_mesh2()
+{
+	for (int i = 0; i < 3; ++i)
+	{
+		m_verts[i].reset();
+		m_normals[i].reset(); 
+		m_uvs[i].reset(); 
+	}
+	m_mat_idx.reset(); 
+}

@@ -7,6 +7,11 @@
 #include "cuda_defs.h"
 
 
+/// Maximum number of materials allowed. The number is restricted to ensure constant structure size for
+/// GPU's constant memory.
+#define MAX_MATERIALS			64
+/// Number of texture types. It is restricted by material flag array. See MaterialProperties.
+#define NUM_TEX_TYPES			2
 
 // ---------------------------------------------------------------------
 /*
@@ -48,13 +53,10 @@ struct c_triangle_data
 	float3 aabb_min; 
 	float3 aabb_max; 
 	float4 *d_verts[3];				// In the layout of (x, x, x ...), (y, y, y ...), (z, z, z ...)
-	//float4 *d_normals[3];			// In the layout of (nx, nx, nx ...), (ny, ny, ny ...), (nz, nz, nz ...)
+	float4 *d_normals[3];			// In the layout of (nx, nx, nx ...), (ny, ny, ny ...), (nz, nz, nz ...)
 	//float2 *d_texcoords[3];			// In the layout of (u, u, u ...), (v, v, v ...)
-	//uint32 *d_material_idx; 
-};
-
-void init_device_triangle_data(c_triangle_data *tri_data, c_scene *scene); 
-void release_device_triangle_data(c_triangle_data *tri_data);  
+	uint32 *d_material_idx; 
+}; 
 
 // ---------------------------------------------------------------------
 /*
@@ -71,11 +73,11 @@ void release_device_triangle_data(c_triangle_data *tri_data);
 	have to be at least as large as the RayChunk that is traced.
 */ 
 // ---------------------------------------------------------------------
-struct c_shading_points_array 
+struct c_shading_points 
 {
 #ifdef __cplusplus 
 	
-	void alloc_mem(uint32 _max_points);
+	void initialise(uint32 _max_points);
 	void destroy();
 
 	// ---------------------------------------------------------------------
@@ -97,22 +99,65 @@ struct c_shading_points_array
 	// Maximum number of shading points that can be stored.
 	uint32 max_pts; 
 	// Index of the corresponding pixel (device array).
-	uint32 *d_pixels_array; 
+	uint32 *d_pixels; 
 	// Index of the intersected triangle or -1, if no intersection (device array).
-	int *d_tri_idx_array;
+	int *d_tri_indices;
 	// Point of intersection coordinates (device array).
-	float4 *d_isect_pts_array;
+	float4 *d_isect_pts;
 	// Geometric normal at intersection point (device array).
-	float4 *d_geo_normals_array; 
+	float4 *d_geo_normals; 
 	// Shading normal at intersection point (device array).
-	float4 *d_shading_normals_array; 
+	float4 *d_shading_normals; 
 	// Barycentric hit coordinates (device array).
-	float2 *d_isect_bary_array; 
+	float2 *d_isect_barycoords; 
 };
 
 
 //////////////////////////////////////////////////////////////////////////
 
+enum e_light_type 
+{
+	light_type_point = 0,
+	light_type_directional = 1, 
+	light_type_area_disc = 2,
+	light_type_area_quad = 3
+};
+
+struct c_light_data
+{
+	/// Type of light source.
+	e_light_type type;
+	/// Light source position. Invalid for directional light sources.
+	float3 position;
+	/// Light direction. Invalid for point light sources.
+	float3 direction;
+	/// Emitted radiance of light source. This is the intensity for point lights.
+	float3 emit_l;
+	/// Vector that spans first side of the rectangle for rectangle area lights.
+	float3 area_v1;
+	/// Vector that spans second side of the rectangle for rectangle area lights.
+	float3 area_v2;
+	/// Area light radius for disc area lights.
+	float area_radius;
+};
+
+
+struct c_material_desc
+{
+	float3 diff_color[MAX_MATERIALS]; 
+	float3 spec_color[MAX_MATERIALS]; 
+	float spec_exp[MAX_MATERIALS]; 
+};
+
+struct c_material_data 
+{
+public: 
+	void initialize(c_scene *scene); 
+	void destroy();
+	
+	uint32 num_materials; 
+	c_material_desc mats_desc; 
+};
 
 
 #endif // __kernel_data_h__

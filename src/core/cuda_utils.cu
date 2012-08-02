@@ -379,6 +379,7 @@ template void device_segmented_reduce_max<uint32>(uint32 *d_data, uint32 *d_owne
 template void device_scan<uint32>(uint32 *d_data, size_t num_elems, bool is_inclusive, uint32 *d_out); 
 
 template void kernel_wrapper_set_from_address<uint32>(uint32 *d_array, uint32 *d_src_addr, uint32 *d_vals, uint32 count_target);
+template void kernel_wrapper_set_from_address<int>(int *d_array, uint32 *d_src_addr, int *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<unsigned long long>(unsigned long long *d_array, uint32 *d_src_addr, unsigned long long *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<float>(float *d_array, uint32 *d_src_addr, float *d_vals, uint32 count_target);
 template void kernel_wrapper_set_from_address<float2>(float2 *d_array, uint32 *d_src_addr, float2 *d_vals, uint32 count_target);

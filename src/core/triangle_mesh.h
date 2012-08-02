@@ -86,6 +86,7 @@ private:
 typedef boost::shared_array<point3f> verts_pos_array;
 typedef boost::shared_array<normal3f> verts_normal_array;
 typedef boost::shared_array<vector3f> verts_uv_array;
+typedef boost::shared_array<unsigned int> face_mat_idx_array; 
 
 class c_triangle_mesh2
 {
@@ -94,8 +95,11 @@ public:
 	c_triangle_mesh2(const verts_pos_array pos[3],
 					 const verts_normal_array normals[3], 
 					 const verts_uv_array uvs[3],
+					 const face_mat_idx_array mat_idx, 
 					 size_t num_faces,
 					 size_t num_verts);
+
+	~c_triangle_mesh2(); 
 
 	size_t get_num_faces() const { return m_num_faces; }
 
@@ -106,6 +110,8 @@ public:
 	normal3f* get_normals(size_t i) { assert(i < 3); return m_normals[i].get(); }
 
 	vector3f* get_texcoords(size_t i) { assert(i < 3); return m_uvs[i].get(); }
+
+	unsigned int get_mat_idx(size_t f) { assert(f < m_num_faces); return m_mat_idx[f]; }
 
 	bool has_normal() const 
 	{
@@ -128,6 +134,9 @@ private:
 	// Texture coordinate arrays, stored as three arrays of #m_numTris UVW-vectors each.
 	// So at most three-dimensional textures are supported. 
 	verts_uv_array m_uvs[3]; 
+
+	// Materials indices 
+	face_mat_idx_array m_mat_idx;
 
 	size_t m_num_verts;
 	size_t m_num_faces; 

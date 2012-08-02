@@ -45,15 +45,13 @@ void initialize()
 	assimp_import_scene(file_name, &ai_scene);
 	assimp_load_meshes2(ai_scene, meshes, bounds); 
 	assimp_release_scene(ai_scene); 
-	scene.reset(new c_scene(meshes, bounds)); 
-
-	// Initialize the triangle data (device memory)
-	init_device_triangle_data(&tri_data, scene.get());  
+	scene_light_array lights;
+	scene_material_array mats;
+	scene.reset(new c_scene(meshes, bounds, perspective_cam_ptr(), lights, mats)); 
 }
 
 void cleanup()
-{
-	release_device_triangle_data(&tri_data);
+{ 
 }
 
 void build_kdtree()

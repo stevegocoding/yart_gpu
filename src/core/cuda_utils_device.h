@@ -90,4 +90,10 @@ inline __device__ uint32 device_count_bits(unsigned long long int value)
 }
 
 
+inline __device__ float device_distance_squared(float3 p, float3 q)
+{
+	float3 diff = p - q; 
+	return dot(diff, diff);
+}
+
 #endif // __cuda_utils_device_h__

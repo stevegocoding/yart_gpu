@@ -11,6 +11,22 @@
 #include <sstream>
 #include <fstream>
 
+void color4_to_float4(const struct aiColor4D *c, float f[4])
+{
+	f[0] = c->r;
+	f[1] = c->g;
+	f[2] = c->b;
+	f[3] = c->a;
+}
+
+void set_float4(float f[4], float a, float b, float c, float d)
+{
+	f[0] = a;
+	f[1] = b;
+	f[2] = c;
+	f[3] = d;
+}
+
 size_t assimp_load_meshes(const aiScene *scene, triangle_meshes_array& meshes)
 {
 	for (size_t i = 0; i < scene->mNumMeshes; ++i)
@@ -100,6 +116,7 @@ size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes,
 {
 	std::ofstream ofs("mesh_debug.txt");
 	
+	unsigned int tri_idx = 0; 
 	for (size_t i = 0; i < scene->mNumMeshes; ++i)
 	{
 		size_t num_tris = scene->mMeshes[i]->mNumFaces; 
@@ -110,6 +127,7 @@ size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes,
 		verts_pos_array pos_array[3]; 
 		verts_normal_array normals_array[3];
 		verts_uv_array uvs_array[3]; 
+		face_mat_idx_array mats_idx_array; 
 
 		for (size_t j = 0; j < 3; ++j)
 		{
@@ -120,6 +138,8 @@ size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes,
 				uvs_array[j].reset(new vector3f[num_tris]); 
 		}
 		
+		mats_idx_array.reset(new unsigned int[num_tris]);
+		
 		// Extract triangles data
 		aiMesh *ai_mesh = scene->mMeshes[i]; 
 		for (size_t f = 0; f < ai_mesh->mNumFaces; ++f)
@@ -129,6 +149,8 @@ size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes,
 			// Only Triangles!
 			assert(face.mNumIndices == 3);
 			
+			mats_idx_array[f] = ai_mesh->mMaterialIndex; 
+
 			// Add the triangle
 			for (size_t t = 0; t < 3; ++t)
 			{
@@ -144,7 +166,7 @@ size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes,
 			}
 		}
 
-		triangle_mesh2_ptr mesh = triangle_mesh2_ptr(new c_triangle_mesh2(pos_array, normals_array, uvs_array, num_tris, num_verts));
+		triangle_mesh2_ptr mesh = triangle_mesh2_ptr(new c_triangle_mesh2(pos_array, normals_array, uvs_array, mats_idx_array, num_tris, num_verts));
 		meshes.push_back(mesh); 
 
 		print_mesh(ofs, mesh);
@@ -164,6 +186,41 @@ size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes,
 	}
 
 	return scene->mNumMeshes;
+}
+
+size_t assimp_load_materials(const aiScene *scene, scene_material_array& mats)
+{
+	// According to ASSIMP doc: If the AI_SCENE_FLAGS_INCOMPLETE flag is not set there 
+	// will always be at least ONE material. See
+	// http://assimp.sourceforge.net/lib_html/structai_material.html
+	
+	assert(scene->mNumMaterials > 0);
+	
+	for (size_t i = 0; i < scene->mNumMaterials; ++i)
+	{
+		aiMaterial *mat = scene->mMaterials[i];
+	
+		// Get material colors 
+		aiColor4D diff_clr;
+		aiColor4D spec_clr;
+		float spec_exp = 0.2f; 
+		int ret = 0; 
+
+		ret = aiGetMaterialColor(mat, AI_MATKEY_COLOR_DIFFUSE, &diff_clr); 
+		assert(ret == AI_SUCCESS);
+
+		ret = aiGetMaterialColor(mat, AI_MATKEY_COLOR_SPECULAR, &spec_clr); 
+		assert(ret == AI_SUCCESS);
+
+		unsigned int max = 1; 
+		ret = aiGetMaterialFloatArray(mat, AI_MATKEY_SHININESS, &spec_exp, &max);
+		assert(ret == AI_SUCCESS); 
+		
+		scene_material scene_mat(*(c_vector3f*)&diff_clr, *(c_vector3f*)&spec_clr, spec_exp, false);
+		mats.push_back(scene_mat); 
+	}
+	
+	return mats.size(); 
 }
 
 /*

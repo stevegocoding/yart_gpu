@@ -79,12 +79,14 @@ set(CORE_FILES
 
 set(GPU_FILES
 	cuda_utils.cu
+	cuda_utils_device.h
 	intersect_gpu.h
 	kdtree.cu
 	kdtree_chunklist.cu
 	kdtree_tri.cu
 	ray_gen.cu
 	ray_tracing.cu
+	shading.cu
 	vec_add.cu
 	)
 

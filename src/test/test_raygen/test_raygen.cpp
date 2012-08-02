@@ -60,8 +60,8 @@ void print_ray_pool(ray_pool_ptr ray_pool)
 		// Copy memory from device to host 
 		h_ray_origins.reset(new float4[n]);
 		h_ray_dirs.reset(new float4[n]);
-		cudaMemcpy(h_ray_origins.get(), chunk->d_origins_array, sizeof(float4)*n, cudaMemcpyDeviceToHost);
-		cudaMemcpy(h_ray_dirs.get(), chunk->d_dirs_array, sizeof(float4)*n, cudaMemcpyDeviceToHost);
+		cudaMemcpy(h_ray_origins.get(), chunk->d_origins, sizeof(float4)*n, cudaMemcpyDeviceToHost);
+		cudaMemcpy(h_ray_dirs.get(), chunk->d_dirs, sizeof(float4)*n, cudaMemcpyDeviceToHost);
 		
 		for (size_t j = 0; j < n; ++j)
 		{

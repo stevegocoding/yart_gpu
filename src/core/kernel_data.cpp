@@ -144,7 +144,7 @@ void release_device_triangle_data(c_triangle_data *tri_data)
 
 //////////////////////////////////////////////////////////////////////////
 
-void c_shading_points_array::alloc_mem(uint32 _max_points)
+void c_shading_points::initialise(uint32 _max_points)
 {
 	assert(_max_points > 0); 
 	
@@ -152,29 +152,29 @@ void c_shading_points_array::alloc_mem(uint32 _max_points)
 	max_pts = CUDA_ALIGN_EX(_max_points, mem_pool.get_allcated_size()/sizeof(float));
 	num_pts = 0; 
 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_pixels_array, max_pts*sizeof(uint32), "shading_pts")); 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_tri_idx_array, max_pts*sizeof(int), "shading_pts"));
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_isect_pts_array, max_pts*sizeof(float4), "shading_pts")); 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_geo_normals_array, max_pts*sizeof(float4), "shading_pts")); 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_shading_normals_array, max_pts*sizeof(float4), "shading_pts")); 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_isect_bary_array, max_pts*sizeof(float2), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_pixels, max_pts*sizeof(uint32), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_tri_indices, max_pts*sizeof(int), "shading_pts"));
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_isect_pts, max_pts*sizeof(float4), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_geo_normals, max_pts*sizeof(float4), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_shading_normals, max_pts*sizeof(float4), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request((void**)&d_isect_barycoords, max_pts*sizeof(float2), "shading_pts")); 
 }
 
-void c_shading_points_array::destroy()
+void c_shading_points::destroy()
 {
 	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
-	cuda_safe_call_no_sync(mem_pool.release(d_pixels_array));
-	cuda_safe_call_no_sync(mem_pool.release(d_tri_idx_array));
-	cuda_safe_call_no_sync(mem_pool.release(d_isect_pts_array));
-	cuda_safe_call_no_sync(mem_pool.release(d_geo_normals_array));
-	cuda_safe_call_no_sync(mem_pool.release(d_shading_normals_array));
-	cuda_safe_call_no_sync(mem_pool.release(d_isect_bary_array));	
+	cuda_safe_call_no_sync(mem_pool.release(d_pixels));
+	cuda_safe_call_no_sync(mem_pool.release(d_tri_indices));
+	cuda_safe_call_no_sync(mem_pool.release(d_isect_pts));
+	cuda_safe_call_no_sync(mem_pool.release(d_geo_normals));
+	cuda_safe_call_no_sync(mem_pool.release(d_shading_normals));
+	cuda_safe_call_no_sync(mem_pool.release(d_isect_barycoords));	
 	
 	max_pts = 0; 
 	num_pts = 0; 
 }
 
-void c_shading_points_array::compact_src_addr(uint32 *d_src_addr, uint32 new_count)
+void c_shading_points::compact_src_addr(uint32 *d_src_addr, uint32 new_count)
 {
 	if (new_count == 0)
 	{
@@ -185,22 +185,30 @@ void c_shading_points_array::compact_src_addr(uint32 *d_src_addr, uint32 new_cou
 		return; 
 
 	// Move source data to destination data in-place.
-	/*
-	cuda_compact_in_place(d_pixels_array, d_src_addr, num_pts, new_count);
-	cuda_compact_in_place(d_tri_idx_array, d_src_addr, num_pts, new_count);
-	cuda_compact_in_place(d_geo_normals_array, d_src_addr, num_pts, new_count);
-	cuda_compact_in_place(d_shading_normals_array, d_src_addr, num_pts, new_count);
-	cuda_compact_in_place(d_isect_pts_array, d_src_addr, num_pts, new_count);
-	cuda_compact_in_place(d_isect_bary_array, d_src_addr, num_pts, new_count);
-	*/ 
 	
+	cuda_compact_in_place(d_pixels, d_src_addr, num_pts, new_count);
+	cuda_compact_in_place(d_tri_indices, d_src_addr, num_pts, new_count);
+	cuda_compact_in_place(d_geo_normals, d_src_addr, num_pts, new_count);
+	cuda_compact_in_place(d_shading_normals, d_src_addr, num_pts, new_count);
+	cuda_compact_in_place(d_isect_pts, d_src_addr, num_pts, new_count);
+	cuda_compact_in_place(d_isect_barycoords, d_src_addr, num_pts, new_count);
+		
 	num_pts = new_count;
 }
 
 
 //////////////////////////////////////////////////////////////////////////
 
+void c_material_data::initialize(c_scene *scene)
+{
+	
+}
 
+void c_material_data::destroy()
+{
+	
+}
 
 //////////////////////////////////////////////////////////////////////////
+
 

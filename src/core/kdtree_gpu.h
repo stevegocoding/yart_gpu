@@ -75,6 +75,8 @@ public:
 	// ---------------------------------------------------------------------
 	bool build_tree();
 
+
+	c_kdtree_data* get_kdtree_data() { return m_kd_data; }
 	
 protected:  
 

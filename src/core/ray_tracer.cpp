@@ -27,10 +27,10 @@ void c_ray_chunk::alloc_device_memory()
 	
 	c_cuda_mem_pool& pool = c_cuda_mem_pool::get_instance();
 	size_t align = 16;
-	pool.request((void**)&d_origins_array, max_rays*sizeof(float4), "ray_pool", align);
-	pool.request((void**)&d_dirs_array, max_rays*sizeof(float4), "ray_pool", align); 
-	pool.request((void**)&d_pixels_array, max_rays*sizeof(uint32), "ray_pool"); 
-	pool.request((void**)&d_weights_array, max_rays*sizeof(float4), "ray_pool",align); 
+	pool.request((void**)&d_origins, max_rays*sizeof(float4), "ray_pool", align);
+	pool.request((void**)&d_dirs, max_rays*sizeof(float4), "ray_pool", align); 
+	pool.request((void**)&d_pixels, max_rays*sizeof(uint32), "ray_pool"); 
+	pool.request((void**)&d_weights, max_rays*sizeof(float4), "ray_pool",align); 
 	
 	/*
 	cuda_safe_call_no_sync(cudaMalloc((void**)&d_origins_array, max_rays*sizeof(float4)));
@@ -45,10 +45,10 @@ void c_ray_chunk::free_device_memory()
 	// Release device memory 
 	
 	c_cuda_mem_pool& pool = c_cuda_mem_pool::get_instance();
-	pool.release(d_origins_array); 
-	pool.release(d_dirs_array); 
-	pool.release(d_pixels_array);
-	pool.release(d_weights_array); 
+	pool.release(d_origins); 
+	pool.release(d_dirs); 
+	pool.release(d_pixels);
+	pool.release(d_weights); 
 	
 	/*
 	cuda_safe_call_no_sync(cudaFree(d_origins_array)); 
@@ -210,3 +210,8 @@ bool c_ray_pool::has_more_rays()
 {
 	return (find_processing_chunk() != NULL); 
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////
+

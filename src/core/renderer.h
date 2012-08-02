@@ -10,10 +10,17 @@
 #include "obj_makers.h"
 
 struct c_ray_chunk; 
+
+class c_scene;
+typedef boost::shared_ptr<c_scene> scene_ptr; 
+
+class c_kdtree_triangle; 
+typedef boost::shared_ptr<c_kdtree_triangle> kdtree_tri_ptr; 
+
 class c_renderer
 {
 public:
-	c_renderer(ray_pool_ptr ray_pool, perspective_cam_ptr camera);
+	c_renderer(scene_ptr scene);
 	virtual ~c_renderer(); 
 
 	bool render_scene(uchar4 *d_screen_buf); 
@@ -22,14 +29,29 @@ private:
 	
 	void initialise(uint32 screen_size); 
 	void destroy();
-	bool render_to_buf(PARAM_OUT float4 *d_radiance);
+	
+	int rebuild_obj_kdtree(); 
 
-	uint32 trace_rays(c_ray_chunk *ray_chunk, c_shading_points_array *sp_shading, PARAM_OUT uint32 *d_src_addr = NULL);
+	bool render_to_buf(PARAM_OUT float4 *d_radiance); 
+	uint32 trace_rays(c_ray_chunk *ray_chunk, c_shading_points *sp_shading, uint32 *d_src_addr = NULL);
 	
 	ray_pool_ptr m_ray_pool; 
-	perspective_cam_ptr m_camera;
-	c_shading_points_array m_sp_shading;
-	
+	scene_ptr m_scene;
+	kdtree_tri_ptr m_kdtree_tri; 
+	c_shading_points m_sp_shading; 
+
+	// ---------------------------------------------------------------------
+	/*
+		Renderer Settings 
+	*/ 
+	// ---------------------------------------------------------------------
+ 
+	uint32 m_spp_x, m_spp_y; 
+	bool m_enable_direct_rt; 
+	bool m_enable_shadow_rays;
+	bool m_is_dynamic_scene;
+	uint32 m_area_light_samples_x, m_area_light_samples_y;
+	float m_ray_epsilon; 
 };
 
 #endif // __renderer_h__

@@ -121,10 +121,10 @@ __global__ void kernel_gen_primary_rays(uint32 res_x, uint32 res_y,
 
 		printf("Origin world: %f, %f, %f \r\n", pt_raster.x, pt_raster.y, pt_raster.z);
 		
-		out_chunk.d_origins_array[pixel_idx] = make_float4(origin_world); 
-		out_chunk.d_dirs_array[pixel_idx] = make_float4(dir_world);
-		out_chunk.d_weights_array[pixel_idx] = make_float4(1.0f);
-		out_chunk.d_pixels_array[pixel_idx] = y * res_x + x; 
+		out_chunk.d_origins[pixel_idx] = make_float4(origin_world); 
+		out_chunk.d_dirs[pixel_idx] = make_float4(dir_world);
+		out_chunk.d_weights[pixel_idx] = make_float4(1.0f);
+		out_chunk.d_pixels[pixel_idx] = y * res_x + x; 
 	}
 }
 

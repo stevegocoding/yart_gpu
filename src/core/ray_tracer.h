@@ -27,13 +27,11 @@ struct c_ray_chunk
 	void compact_src_addr(uint32 *d_src_addr, uint32 new_count);
 
 
-#endif 
-	
-
-	float4 *d_origins_array; 
-	float4 *d_dirs_array;
-	uint32 *d_pixels_array;
-	float4 *d_weights_array; 
+#endif  
+	float4 *d_origins; 
+	float4 *d_dirs;
+	uint32 *d_pixels;
+	float4 *d_weights; 
 
 	uint32 depth; 
 	uint32 num_rays; 

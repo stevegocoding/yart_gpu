@@ -41,8 +41,6 @@ endif()
 set(DEP_DLL_DEBUG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/bin/debug/)
 set(DEP_DLL_REL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/bin/release/)
 
-
-
 #Adding src directory to the project
 add_subdirectory(data)
 add_subdirectory(src)
