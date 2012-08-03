@@ -151,7 +151,12 @@ bool c_main_frame::load_scene_from_file(const wxString& file_name)
 	triangle_meshes2_array tri_mesh;
 	c_aabb bounds; 
 	assimp_import_scene(std::string(file_name.mb_str()), &ai_scene);
+
+	// Load mesh 
 	assimp_load_meshes2(ai_scene, tri_mesh, bounds);
+
+	// Load material 
+	
 	
 	
 	

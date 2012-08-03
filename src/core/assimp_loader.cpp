@@ -200,11 +200,14 @@ size_t assimp_load_materials(const aiScene *scene, scene_material_array& mats)
 	{
 		aiMaterial *mat = scene->mMaterials[i];
 	
-		// Get material colors 
+		// 
+		aiString name; 
 		aiColor4D diff_clr;
 		aiColor4D spec_clr;
 		float spec_exp = 0.2f; 
 		int ret = 0; 
+
+		ret = aiGetMaterialString(mat, AI_MATKEY_NAME, &name); 
 
 		ret = aiGetMaterialColor(mat, AI_MATKEY_COLOR_DIFFUSE, &diff_clr); 
 		assert(ret == AI_SUCCESS);
@@ -213,10 +216,12 @@ size_t assimp_load_materials(const aiScene *scene, scene_material_array& mats)
 		assert(ret == AI_SUCCESS);
 
 		unsigned int max = 1; 
-		ret = aiGetMaterialFloatArray(mat, AI_MATKEY_SHININESS, &spec_exp, &max);
+		ret = aiGetMaterialFloat(mat, AI_MATKEY_SHININESS, &spec_exp);
 		assert(ret == AI_SUCCESS); 
 		
-		scene_material scene_mat(*(c_vector3f*)&diff_clr, *(c_vector3f*)&spec_clr, spec_exp, false);
+		std::string mat_name(name.data);
+		spec_exp *= 0.25f; 
+		scene_material scene_mat(mat_name, *(c_vector3f*)&diff_clr, *(c_vector3f*)&spec_clr, spec_exp, false);
 		mats.push_back(scene_mat); 
 	}
 	

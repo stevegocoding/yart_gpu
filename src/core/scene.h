@@ -23,17 +23,19 @@ typedef boost::shared_ptr<c_perspective_camera> perspective_cam_ptr;
 
 struct scene_material
 {
-	scene_material(const c_vector3f& diff_color, const c_vector3f& spec_color, float _spec_exp, bool area_light = false)
+	scene_material(const std::string& _name, const c_vector3f& diff_color, const c_vector3f& spec_color, float _spec_exp, bool area_light = false)
 		: is_area_light(area_light)
 		, diffuse_color(diff_color)
 		, specular_color(spec_color)
 		, spec_exp(_spec_exp) 
+		, name(_name)
 	{} 
 	
 	bool is_area_light; 
 	c_vector3f diffuse_color; 
 	c_vector3f specular_color; 
 	float spec_exp;
+	std::string name;
 };
 
 struct scene_light
