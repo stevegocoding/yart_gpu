@@ -30,13 +30,26 @@ void initialise()
 
 	triangle_meshes2_array meshes; 
 	scene_material_array materials; 
+	scene_light_array lights; 
+
 	c_aabb bounds; 
 	assimp_import_scene(file_name, &ai_scene);
 	assimp_load_meshes2(ai_scene, meshes, bounds);
 	assimp_load_materials(ai_scene, materials);
 	assimp_release_scene(ai_scene);
+	lights.push_back(make_point_light(c_vector3f(0.0f, 0.0f, 0.0f), c_vector3f(1.0f, 1.0f, 1.0f)));
 	
-	// scene.reset(new c_scene(meshes, bounds));
+	// Create camera 
+	c_point3f eye_pos(0.0f, 0.0f, -0.5f);
+	c_point3f look_at(0.f, 0.0f, 0.0f);
+	c_vector3f up(0.0f, 1.0f, 0.0f); 
+	float wnd[4] = {-1.333f, 1.333f, -1.0f, 1.0f}; 
+	c_transform world_to_cam = make_look_at_lh(eye_pos, look_at, up);
+	c_transform cam_to_world = inverse_transform(world_to_cam);
+	c_transform proj = make_perspective_proj(60, 1e-2f, 1000.0f); 
+	perspective_cam_ptr cam = make_perspective_cam(cam_to_world, wnd, 0, 0, 60, 512, 512);
+	
+	scene.reset(new c_scene(meshes, bounds,cam, lights, materials));
 
 	// Copy data back from device to host
 	
