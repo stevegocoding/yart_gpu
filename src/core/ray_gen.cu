@@ -119,7 +119,7 @@ __global__ void kernel_gen_primary_rays(uint32 res_x, uint32 res_y,
 		float3 dir_world = dfunc_transform_vec(con_mat_cam2world.elems, dir_cam); 
 		dir_world = normalize(dir_world);
 
-		printf("Origin world: %f, %f, %f \r\n", pt_raster.x, pt_raster.y, pt_raster.z);
+		// printf("Origin world: %f, %f, %f \r\n", pt_raster.x, pt_raster.y, pt_raster.z);
 		
 		out_chunk.d_origins[pixel_idx] = make_float4(origin_world); 
 		out_chunk.d_dirs[pixel_idx] = make_float4(dir_world);

@@ -89,7 +89,7 @@ void c_cuda_canvas::init_gl_cuda()
 	// NOTE: For CUDA toolkit 2.3 I used a pixel buffer object here. This is no more required for toolkit 3.0. 
 	glGenBuffers(1, &m_gl_vbo); 
 	glBindBuffer(GL_ARRAY_BUFFER, m_gl_vbo); 
-	glBufferData(GL_ARRAY_BUFFER, m_screen_size.x * m_screen_size.y * sizeof(GLubyte)*4, 0, GL_DYNAMIC_DRAW); 
+	glBufferData(GL_ARRAY_BUFFER, m_screen_size.x*m_screen_size.y*sizeof(GLubyte)*4, 0, GL_DYNAMIC_DRAW); 
 	glBindBuffer(GL_ARRAY_BUFFER, 0); 
 	
 	// Register this buffer object with CUDA
@@ -110,6 +110,8 @@ void c_cuda_canvas::init_gl_cuda()
 	glOrtho(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f);
 	
 	yart_log_message("OpenGL and CUDA initialized. Using device %d.", device_id); 
+
+	m_is_inited = true;
 }
 
 void c_cuda_canvas::destroy_gl_cuda()
@@ -147,37 +149,45 @@ void c_cuda_canvas::render()
 	}
 	else 
 	{
+		// ---------------------------------------------------------------------
+		/*
+			For Testing!!!
+		*/ 
+		// ---------------------------------------------------------------------
+		c_cuda_memory<uchar4> d_buf(m_screen_size.GetWidth()*m_screen_size.GetWidth()); 
+		m_main_frame->render(d_buf.buf_ptr());
+
+		/*
 		// Map VBO to get cuda device memory pointer
 		size_t num_bytes; 
 		uchar4 *d_buf_ptr = NULL;
-		err = cudaGraphicsMapResources(1, &m_cuda_vbo_res, 0);
-		assert(err == cudaSuccess); 
-		err = cudaGraphicsResourceGetMappedPointer((void**)&d_buf_ptr, &num_bytes, m_cuda_vbo_res); 
+		cuda_safe_call_no_sync(cudaGraphicsMapResources(1, &m_cuda_vbo_res, 0));
+		cuda_safe_call_no_sync(cudaGraphicsResourceGetMappedPointer((void**)&d_buf_ptr, &num_bytes, m_cuda_vbo_res)); 
 
-		assert(err == cudaSuccess); 
 		m_main_frame->render(d_buf_ptr);
+		cuda_safe_call_no_sync(cudaGetLastError());
 		
-		err = cudaGraphicsUnmapResources(1, &m_cuda_vbo_res, 0); 
-		assert(err == cudaSuccess); 
+		cuda_safe_call_no_sync(cudaGraphicsUnmapResources(1, &m_cuda_vbo_res, 0));  
 		
 		// Transfer VBO data to texture object 
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_gl_vbo);
 		glBindTexture(GL_TEXTURE_2D, m_gl_tex);
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_screen_size.x, m_screen_size.y, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		*/
 	}
 
 	// Draw a full-screen quad with the texture
-	glEnable(GL_TEXTURE_2D);
+	//glEnable(GL_TEXTURE_2D);
 	
 	glBegin(GL_QUADS);
-	//glColor3f(1.0f, 0.0f, 0.0f); 
+	glColor3f(1.0f, 0.0f, 0.0f); 
 	glTexCoord2f(0, 0);	glVertex2f(0, 0);
-	//glColor3f(0.0f, 1.0f, 0.0f); 
+	glColor3f(0.0f, 1.0f, 0.0f); 
 	glTexCoord2f(1, 0);	glVertex2f(1, 0);
-	//glColor3f(0.0f, 0.0f, 1.0f); 
+	glColor3f(0.0f, 0.0f, 1.0f); 
 	glTexCoord2f(1, 1);	glVertex2f(1, 1);
-	//glColor3f(0.5f, 0.5f, 0.5f); 
+	glColor3f(0.5f, 0.5f, 0.5f); 
 	glTexCoord2f(0, 1);	glVertex2f(0, 1);
 	glEnd();
 

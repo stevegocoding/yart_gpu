@@ -118,12 +118,15 @@ bool c_renderer::render_to_buf(PARAM_OUT float4 *d_radiance)
 	
 	while(m_ray_pool->has_more_rays())
 	{
+		
 		// Get more rays from ray pool. This performs synchronization.
 		c_ray_chunk *ray_chunk = m_ray_pool->get_next_chunk();
+		
 		
 		// Trace rays
 		trace_rays(ray_chunk, &m_sp_shading);
 
+		/*
 		if (m_sp_shading.num_pts == 0)
 		{ 
 			m_ray_pool->finalize_chunk(ray_chunk); 
@@ -133,7 +136,7 @@ bool c_renderer::render_to_buf(PARAM_OUT float4 *d_radiance)
 		c_cuda_memory<float4> d_radiance_indirect(m_sp_shading.num_pts, "temp", 256); 
 		cuda_safe_call_no_sync(cudaMemset(d_radiance_indirect.buf_ptr(), 0, m_sp_shading.num_pts*sizeof(float4))); 
 
-
+		
 		kernel_wrapper_solve_lte(*ray_chunk, 
 								m_sp_shading, 
 								m_scene->get_light_data(), 
@@ -142,15 +145,13 @@ bool c_renderer::render_to_buf(PARAM_OUT float4 *d_radiance)
 								m_enable_shadow_rays, 
 								area_light_samples, 
 								d_radiance); 
-
-
+		*/
 		m_ray_pool->finalize_chunk(ray_chunk);
 	}
 	
 	uint32 spp = m_ray_pool->get_spp();
 	if (spp > 1)
 		kernel_wrapper_scale_vector_array((float4*)d_radiance, res_x*res_y, 1.0f / spp);
-
 
 	return true; 
 }
@@ -190,7 +191,7 @@ void c_renderer::destroy()
 bool c_renderer::rebuild_obj_kdtree()
 {
 	// No need to rebuild the tree for static scene 
-	if (!m_is_dynamic_scene)
+	if (!m_is_dynamic_scene && m_kdtree_tri)
 		return true; 
 
 	if (m_kdtree_tri) 
@@ -204,9 +205,8 @@ bool c_renderer::rebuild_obj_kdtree()
 								m_scene->get_triangle_data(), 
 								m_scene->get_material_data(),
 								*(m_kdtree_tri->get_kdtree_data()), 
-								m_ray_epsilon); 
+								m_ray_epsilon);  
 	
-
 	return true; 
 }
 
@@ -218,6 +218,7 @@ uint32 c_renderer::trace_rays(c_ray_chunk *ray_chunk, c_shading_points *shading_
 	kernel_wrapper_trace_rays(*ray_chunk, *shading_pts, d_is_valid.buf_ptr());
 	uint32 traced = ray_chunk->num_rays;
 
+	/*
 	// Compact shading points and ray chunk to avoid rays that hit nothing.
 	if (d_out_src_addr)
 	{
@@ -232,7 +233,9 @@ uint32 c_renderer::trace_rays(c_ray_chunk *ray_chunk, c_shading_points *shading_
 		shading_pts->compact_src_addr(d_src_addr.buf_ptr(), new_count);
 		ray_chunk->compact_src_addr(d_src_addr.buf_ptr(), new_count);
 	}
+	*/
 	
+	/*
 	// Create normals for shading points.
 	if (shading_pts->num_pts != 0) 
 	{
@@ -242,6 +245,7 @@ uint32 c_renderer::trace_rays(c_ray_chunk *ray_chunk, c_shading_points *shading_
 											shading_pts->d_geo_normals, 
 											shading_pts->d_shading_normals); 
 	}
+	*/
 	
 	return traced;
 }

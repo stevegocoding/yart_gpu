@@ -154,10 +154,10 @@ void c_shading_points::initialise(uint32 _max_points)
 
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_pixels, max_pts*sizeof(uint32), "shading_pts")); 
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_tri_indices, max_pts*sizeof(int), "shading_pts"));
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_isect_pts, max_pts*sizeof(float4), "shading_pts")); 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_geo_normals, max_pts*sizeof(float4), "shading_pts")); 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_shading_normals, max_pts*sizeof(float4), "shading_pts")); 
-	cuda_safe_call_no_sync(mem_pool.request((void**)&d_isect_barycoords, max_pts*sizeof(float2), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_isect_pts, max_pts*sizeof(float4), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_geo_normals, max_pts*sizeof(float4), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_shading_normals, max_pts*sizeof(float4), "shading_pts")); 
+	cuda_safe_call_no_sync(mem_pool.request_tex((void**)&d_isect_barycoords, max_pts*sizeof(float2), "shading_pts")); 
 }
 
 void c_shading_points::destroy()

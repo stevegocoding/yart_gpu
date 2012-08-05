@@ -6,37 +6,31 @@
 #include "ray_tracer.h"
 #include "utils.h"
 #include "cuda_rng.h"
+#include "kernel_data.h"
+#include "scene.h"
+#include "assimp_loader.h"
+#include "renderer.h"
 
-uint32 g_screen_width = 64; 
-uint32 g_screen_height = 64; 
-perspective_cam_ptr g_cam; 
-ray_pool_ptr g_ray_pool;
+class c_renderer;
+typedef boost::shared_ptr<c_renderer> renderer_ptr; 
+
+uint32 g_screen_width = 512; 
+uint32 g_screen_height = 512; 
 
 boost::shared_array<float4> h_ray_origins;
 boost::shared_array<float4> h_ray_dirs;
 
+const std::string file_name = "../data/models/MNSimple.obj";
 static const std::string mt_dat_file = "../data/mt/MersenneTwister.dat";
+const aiScene *ai_scene = NULL;
+scene_ptr scene;
+renderer_ptr renderer; 
 
 void initialise()
 {
 	open_console_wnd();
 	
-	// Initialise the memory pool 
-	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance(); 
-	mem_pool.initialise(256*1024*1024, 256*1024);
-	
-	// Create camera 
-	c_point3f eye_pos(0.0f, 0.0f, -0.5f);
-	c_point3f look_at(0.f, 0.0f, 0.0f);
-	c_vector3f up(0.0f, 1.0f, 0.0f); 
-	float wnd[4] = {-1.0f, 1.0f, -1.0f, 1.0f}; 
-	c_transform world_to_cam = make_look_at_lh(eye_pos, look_at, up);
-	c_transform cam_to_world = inverse_transform(world_to_cam);
-	c_transform proj = make_perspective_proj(60, 1e-2f, 1000.0f); 
-	g_cam = make_perspective_cam(cam_to_world, wnd, 0, 0, 60, g_screen_width, g_screen_height);
-
-	// Create ray pool
-	g_ray_pool = make_ray_pool(256*1024, 1, 1); 
+	std::ofstream ofs("debug.txt");
 
 	// Init CUDA MT
 	srand(1337); 
@@ -45,6 +39,35 @@ void initialise()
 	assert(ret); 
 	ret = rng.seed(1337);
 	assert(ret); 
+
+	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
+	mem_pool.initialise(256*1024*1024, 256*1024);
+
+	triangle_meshes2_array meshes; 
+	scene_material_array materials; 
+	scene_light_array lights; 
+
+	c_aabb bounds; 
+	assimp_import_scene(file_name, &ai_scene);
+	assimp_load_meshes2(ai_scene, meshes, bounds);
+	assimp_load_materials(ai_scene, materials);
+	assimp_release_scene(ai_scene);
+	lights.push_back(make_point_light(c_vector3f(0.0f, 0.0f, 0.0f), c_vector3f(1.0f, 1.0f, 1.0f)));
+
+	// Create camera 
+	c_point3f eye_pos(0.0f, 0.0f, -0.5f);
+	c_point3f look_at(0.f, 0.0f, 0.0f);
+	c_vector3f up(0.0f, 1.0f, 0.0f); 
+	float wnd[4] = {-1.333f, 1.333f, -1.0f, 1.0f}; 
+	c_transform world_to_cam = make_look_at_lh(eye_pos, look_at, up);
+	c_transform cam_to_world = inverse_transform(world_to_cam);
+	c_transform proj = make_perspective_proj(60, 1e-2f, 1000.0f); 
+	perspective_cam_ptr cam = make_perspective_cam(cam_to_world, wnd, 0, 0, 60, g_screen_width, g_screen_height);
+
+	scene.reset(new c_scene(meshes, bounds,cam, lights, materials));
+
+	renderer.reset(new c_renderer(scene)); 
+	renderer->initialise(); 
 }
 
 void print_ray_pool(ray_pool_ptr ray_pool)
@@ -63,7 +86,6 @@ void print_ray_pool(ray_pool_ptr ray_pool)
 		cudaMemcpy(h_ray_origins.get(), chunk->d_origins, sizeof(float4)*n, cudaMemcpyDeviceToHost);
 		cudaMemcpy(h_ray_dirs.get(), chunk->d_dirs, sizeof(float4)*n, cudaMemcpyDeviceToHost);
 		
-		ofs << "Ray direction: " << std::endl; 
 		for (size_t j = 0; j < n; ++j)
 		{
 			print_float4(ofs, h_ray_dirs[j]);
@@ -79,15 +101,14 @@ void print_ray_pool(ray_pool_ptr ray_pool)
 int main(int argc, char **argv)
 {
 	initialise();
-	
-	// Generate rays 
-	g_ray_pool->gen_primary_rays(g_cam.get());
+
+	c_cuda_memory<uchar4> d_buf(g_screen_width*g_screen_width); 
+	renderer->render_scene(d_buf.buf_ptr());
 	
 	// Print rays
-	print_ray_pool(g_ray_pool);
-	
-	g_ray_pool.reset();
-	g_cam.reset();
+	// print_ray_pool(g_ray_pool);
+
+	renderer.reset(); 
 
 	return 0; 
 }

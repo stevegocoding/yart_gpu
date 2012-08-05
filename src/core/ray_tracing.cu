@@ -14,6 +14,7 @@
 #define INTERSECT_BLOCKSIZE	128
 
 texture<float4, 1, cudaReadModeElementType> tex_tri_v0, tex_tri_v1, tex_tri_v2; 
+texture<float4, 1, cudaReadModeElementType> tex_tri_n0, tex_tri_n1, tex_tri_n2; 
 texture<uint32, 1, cudaReadModeElementType> tex_tri_mat_idx; 
 texture<uint32, 1, cudaReadModeElementType> tex_kdtree;
 
@@ -429,13 +430,17 @@ __global__  void kernel_find_intersections_kd(c_ray_chunk ray_chunk,
 											uint32 *d_out_is_valid)
 {
 	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
-	printf("Intersection Not Found! \r\n"); 
+	//
 	
 	if (idx < ray_chunk.num_rays)
 	{
 		const float3 ray_origin = make_float3(ray_chunk.d_origins[idx]); 
 		const float3 ray_dir = make_float3(ray_chunk.d_dirs[idx]); 
+
+		printf("ray origin: %f %f %f \r\n", ray_origin.x, ray_origin.y, ray_origin.z); 
+		printf("ray dir: %f %f %f \r\n", ray_dir.x, ray_dir.y, ray_dir.z); 
 		
+		/*
 		// NOTE: Currenlty we also trace rays with zero influence, if any.
 		float lambda; 
 		float2 bary_hit; 
@@ -457,8 +462,11 @@ __global__  void kernel_find_intersections_kd(c_ray_chunk ray_chunk,
 		else 
 			printf("Intersection Not Found! \r\n"); 
 
+		//int idx_tri = -1; 
+
 		// Store if this result is valid.
 		d_out_is_valid[idx] = ((idx_tri != -1)? 1 : 0); 
+		*/
 	}
 }
 
@@ -555,8 +563,6 @@ void kernel_wrapper_solve_lte(const c_ray_chunk& ray_chunk,
 															d_io_radiance); 
 }
 
-
-
 extern "C"
 void update_raytracing_kernel_data(const c_light_data& lights, 
 									const c_triangle_data& tris,
@@ -583,6 +589,15 @@ void update_raytracing_kernel_data(const c_light_data& lights,
 	tex_tri_v2.normalized = false;
 	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_v2, tris.d_verts[2], cd_float4, tris.num_tris*sizeof(float4)));
 
+	
+	// Normals
+	tex_tri_n0.normalized = false; 
+	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_n0, tris.d_normals[0], cd_float4, tris.num_tris*sizeof(float4)));
+	tex_tri_n1.normalized = false; 
+	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_n1, tris.d_normals[1], cd_float4, tris.num_tris*sizeof(float4)));
+	tex_tri_n2.normalized = false;
+	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_n2, tris.d_normals[2], cd_float4, tris.num_tris*sizeof(float4)));
+
 	// Materials
 	tex_tri_mat_idx.normalized = false; 
 	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_mat_idx, tris.d_material_idx, cd_uint, tris.num_tris*sizeof(uint32))); 
@@ -590,22 +605,8 @@ void update_raytracing_kernel_data(const c_light_data& lights,
 	// KD-Tree 
 	tex_kdtree.normalized = false; 
 	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_kdtree, kdtree.d_preorder_tree, cd_uint, kdtree.size_tree*sizeof(uint32)));
-};
-
-extern "C"
-void kernel_wrapper_cleanup_kernel_data()
-{	
-	// Triangle data 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v0)); 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v1)); 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v2));
-
-	// Triangle material index 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_mat_idx)); 
 	
-	// KD-Tree data 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_kdtree));  	
-}
+};
 
 extern "C"
 void init_raytracing_kernels()
@@ -620,16 +621,19 @@ void init_raytracing_kernels()
 extern "C"
 void cleanup_raytracing_kernels()
 {
-	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance(); 
+	// Triangle data 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v0)); 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v1)); 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v2));
 
-	// Triangle Data 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v0));
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v1));
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_v2)); 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_n0)); 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_n1)); 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_n2));
 
-	// KD-Tree Data 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_kdtree)); 
+	// Triangle material index 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_mat_idx)); 
 
-	// Material Data 
-	cuda_safe_call_no_sync(cudaUnbindTexture(tex_tri_mat_idx));
+	// KD-Tree data 
+	cuda_safe_call_no_sync(cudaUnbindTexture(tex_kdtree));  	
+	
 }
