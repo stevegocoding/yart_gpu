@@ -2,6 +2,7 @@
 #include <cutil_inline.h>
 #include <cuda_gl_interop.h>
 
+#include "cuda_mem_pool.h"
 #include "cuda_utils.h"
 #include "cuda_canvas.h"
 #include "main_frame.h"
@@ -80,6 +81,10 @@ void c_cuda_canvas::init_gl_cuda()
 	err = cudaGLSetGLDevice(device_id);
 	assert(err == cudaSuccess); 
 
+	// Initialize the memory pool 
+	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
+	mem_pool.initialise(256*1024*1024, 256*1024); 
+	
 	// Create video buffer object.
 	// NOTE: For CUDA toolkit 2.3 I used a pixel buffer object here. This is no more required for toolkit 3.0. 
 	glGenBuffers(1, &m_gl_vbo); 
@@ -148,8 +153,10 @@ void c_cuda_canvas::render()
 		err = cudaGraphicsMapResources(1, &m_cuda_vbo_res, 0);
 		assert(err == cudaSuccess); 
 		err = cudaGraphicsResourceGetMappedPointer((void**)&d_buf_ptr, &num_bytes, m_cuda_vbo_res); 
+
 		assert(err == cudaSuccess); 
 		m_main_frame->render(d_buf_ptr);
+		
 		err = cudaGraphicsUnmapResources(1, &m_cuda_vbo_res, 0); 
 		assert(err == cudaSuccess); 
 		
@@ -161,16 +168,16 @@ void c_cuda_canvas::render()
 	}
 
 	// Draw a full-screen quad with the texture
-	// glEnable(GL_TEXTURE_2D);
+	glEnable(GL_TEXTURE_2D);
 	
 	glBegin(GL_QUADS);
-	glColor3f(1.0f, 0.0f, 0.0f); 
+	//glColor3f(1.0f, 0.0f, 0.0f); 
 	glTexCoord2f(0, 0);	glVertex2f(0, 0);
-	glColor3f(0.0f, 1.0f, 0.0f); 
+	//glColor3f(0.0f, 1.0f, 0.0f); 
 	glTexCoord2f(1, 0);	glVertex2f(1, 0);
-	glColor3f(0.0f, 0.0f, 1.0f); 
+	//glColor3f(0.0f, 0.0f, 1.0f); 
 	glTexCoord2f(1, 1);	glVertex2f(1, 1);
-	glColor3f(0.5f, 0.5f, 0.5f); 
+	//glColor3f(0.5f, 0.5f, 0.5f); 
 	glTexCoord2f(0, 1);	glVertex2f(0, 1);
 	glEnd();
 

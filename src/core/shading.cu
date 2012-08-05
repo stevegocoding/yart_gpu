@@ -16,6 +16,8 @@ __global__ void kernel_float4_to_rgba(float4 *d_in_radiance,
 	{
 		float4 l = d_in_radiance[tid]; 
 		
+		// float4 l = make_float4(0.5f, 0.5f, 0.5f, 0.5f); 
+
 		uchar4 pix;
 		pix.x = (uchar)fminf(255.f, 255.f * l.x); 
 		pix.y = (uchar)fminf(255.f, 255.f * l.y); 

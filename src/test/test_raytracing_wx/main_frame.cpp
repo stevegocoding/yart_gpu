@@ -9,6 +9,7 @@
 #include "wx_utils.h"
 #include "assimp_loader.h" 
 #include "scene.h"
+#include "cuda_mem_pool.h"
 
 enum
 {
@@ -69,6 +70,7 @@ bool c_main_frame::reinit_renderer(bool update)
 		return false; 
 	
 	m_renderer.reset(new c_renderer(m_scene));
+	m_renderer->initialise(); 
 	
 	if (m_is_ready) 
 	{
@@ -101,8 +103,8 @@ bool c_main_frame::need_update() const
 		return m_renderer != NULL; 
 	else if (!m_single_frame)
 		return m_renderer != NULL; 
-	
-	return false;
+	else 
+		return false;
 }
 
 bool c_main_frame::check_for_cuda()
@@ -193,7 +195,7 @@ bool c_main_frame::load_scene_from_file(const wxString& file_name)
 	lights.push_back(make_point_light(c_vector3f(0.0f, 0.0f, 0.0f), c_vector3f(1.0f, 1.0f, 1.0f)));
 	
 	// Create camera 
-	c_point3f eye_pos(0.0f, 0.0f, -0.5f);
+	c_point3f eye_pos(0.0f, 0.0f, -5.0f);
 	c_point3f look_at(0.f, 0.0f, 0.0f);
 	c_vector3f up(0.0f, 1.0f, 0.0f); 
 	float wnd[4] = {-1.333f, 1.333f, -1.0f, 1.0f}; 

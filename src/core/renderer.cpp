@@ -8,7 +8,7 @@
 #include "cuda_primitives.h"
 #include "kdtree_triangle.h"
 
-static const std::string mt_dat_file = "MersenneTwister.dat";
+static const std::string mt_dat_file = "../data/mt/MersenneTwister.dat";
 
 // ---------------------------------------------------------------------
 /*
@@ -134,7 +134,8 @@ bool c_renderer::render_to_buf(PARAM_OUT float4 *d_radiance)
 		cuda_safe_call_no_sync(cudaMemset(d_radiance_indirect.buf_ptr(), 0, m_sp_shading.num_pts*sizeof(float4))); 
 
 
-		kernel_wrapper_solve_lte(*ray_chunk, m_sp_shading, 
+		kernel_wrapper_solve_lte(*ray_chunk, 
+								m_sp_shading, 
 								m_scene->get_light_data(), 
 								d_radiance_indirect.buf_ptr(), 
 								m_enable_direct_rt, 
@@ -154,12 +155,8 @@ bool c_renderer::render_to_buf(PARAM_OUT float4 *d_radiance)
 	return true; 
 }
 
-void c_renderer::initialise(uint32 screen_size)
+void c_renderer::initialise()
 {
-	// Initialize the memory pool 
-	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
-	mem_pool.initialise(256*1024*1024, 256*1024); 
-	
 	// Initialise the MT
 	srand(1337); 
 	c_cuda_rng& rng = c_cuda_rng::get_instance();
@@ -170,8 +167,12 @@ void c_renderer::initialise(uint32 screen_size)
 	ret = rng.seed(1337);
 	assert(ret); 
 	
+	uint32 res_x = m_scene->get_cam()->res_x(); 
+	uint32 res_y = m_scene->get_cam()->res_y();
+	assert(res_x == res_y);
+	
 	// Shading points array
-	m_sp_shading.initialise(screen_size*screen_size);
+	m_sp_shading.initialise(res_x*res_x);
 	
 	// Ray pool
 	m_ray_pool = make_ray_pool(256*1024, m_spp_x, m_spp_y); 
@@ -186,11 +187,11 @@ void c_renderer::destroy()
 	cleanup_raytracing_kernels(); 
 }
 
-int c_renderer::rebuild_obj_kdtree()
+bool c_renderer::rebuild_obj_kdtree()
 {
 	// No need to rebuild the tree for static scene 
 	if (!m_is_dynamic_scene)
-		return 0; 
+		return true; 
 
 	if (m_kdtree_tri) 
 		m_kdtree_tri.reset(); 
@@ -206,7 +207,7 @@ int c_renderer::rebuild_obj_kdtree()
 								m_ray_epsilon); 
 	
 
-	return 0; 
+	return true; 
 }
 
 uint32 c_renderer::trace_rays(c_ray_chunk *ray_chunk, c_shading_points *shading_pts, PARAM_OUT uint32 *d_out_src_addr)

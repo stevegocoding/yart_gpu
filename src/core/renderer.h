@@ -23,14 +23,14 @@ public:
 	c_renderer(scene_ptr scene);
 	virtual ~c_renderer(); 
 
+	void initialise(); 
+	void destroy();
+
 	bool render_scene(uchar4 *d_screen_buf); 
-	
+
 private: 
 	
-	void initialise(uint32 screen_size); 
-	void destroy();
-	
-	int rebuild_obj_kdtree(); 
+	bool rebuild_obj_kdtree(); 
 
 	bool render_to_buf(PARAM_OUT float4 *d_radiance); 
 	uint32 trace_rays(c_ray_chunk *ray_chunk, c_shading_points *sp_shading, uint32 *d_src_addr = NULL);

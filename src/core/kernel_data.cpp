@@ -149,7 +149,7 @@ void c_shading_points::initialise(uint32 _max_points)
 	assert(_max_points > 0); 
 	
 	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
-	max_pts = CUDA_ALIGN_EX(_max_points, mem_pool.get_allcated_size()/sizeof(float));
+	max_pts = CUDA_ALIGN_EX(_max_points, mem_pool.get_tex_alignment()/sizeof(float));
 	num_pts = 0; 
 
 	cuda_safe_call_no_sync(mem_pool.request((void**)&d_pixels, max_pts*sizeof(uint32), "shading_pts")); 

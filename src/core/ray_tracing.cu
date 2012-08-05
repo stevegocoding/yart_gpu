@@ -102,6 +102,8 @@ __device__ void device_add_pixel_radiance(const c_ray_chunk& ray_chunk,
 	float3 scaled_l = make_float3(ray_chunk.d_weights[tid]) * l_sample;
 	
 	uint32 pixel_idx = shading_pts.d_pixels[tid]; 
+
+	printf("Intersection Not Found! \r\n"); 
 	
 	float4 lo = d_radiance[pixel_idx]; 
 	lo.x += scaled_l.x; 
@@ -380,6 +382,8 @@ __global__ void kernel_add_direct_radiance(c_ray_chunk ray_chunk,
 														mat_flags,
 														bary_hit); 
 		l_segment *= scale; 
+
+		l_segment = device_get_color_diffuse(idx_tri, idx_material, mat_flags, make_float2(0.0f, 0.0f)); 
 		
 		device_add_pixel_radiance(ray_chunk, shading_pts, tid, l_segment, d_io_radiance); 
 	}
@@ -391,7 +395,9 @@ __global__ void kernel_add_direct_radiance(c_ray_chunk ray_chunk,
 	
 */ 
 // ---------------------------------------------------------------------
-__global__ void kernel_find_intersections(c_ray_chunk ray_chunk, c_shading_points shading_pts, uint32 *d_out_is_valid)
+__global__ void kernel_find_intersections(c_ray_chunk ray_chunk, 
+										c_shading_points shading_pts, 
+										uint32 *d_out_is_valid)
 {
 	uint32 idx = threadIdx.x + blockIdx.x * blockDim.x;
 	
@@ -422,7 +428,8 @@ __global__  void kernel_find_intersections_kd(c_ray_chunk ray_chunk,
 											c_shading_points shading_pts, 
 											uint32 *d_out_is_valid)
 {
-	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x; 
+	uint32 idx = blockIdx.x * blockDim.x + threadIdx.x;
+	printf("Intersection Not Found! \r\n"); 
 	
 	if (idx < ray_chunk.num_rays)
 	{
@@ -444,6 +451,11 @@ __global__  void kernel_find_intersections_kd(c_ray_chunk ray_chunk,
 		// Avoid branching, so just calculate
 		shading_pts.d_isect_pts[idx] = make_float4(ray_origin + ray_dir * lambda); 
 		shading_pts.d_isect_barycoords[idx] = bary_hit; 
+
+		if (idx_tri != -1)
+			printf("Intersection Found! tri_idx: %d \r\n", idx_tri); 
+		else 
+			printf("Intersection Not Found! \r\n"); 
 
 		// Store if this result is valid.
 		d_out_is_valid[idx] = ((idx_tri != -1)? 1 : 0); 
@@ -482,7 +494,7 @@ void kernel_wrapper_trace_rays(const c_ray_chunk& ray_chunk, PARAM_OUT c_shading
 	dim3 block_size = dim3(INTERSECT_BLOCKSIZE, 1, 1);
 	dim3 grid_size = dim3(CUDA_DIVUP(ray_chunk.num_rays, block_size.x), 1, 1);
 
-	kernel_find_intersections<<<grid_size, block_size>>>(ray_chunk, out_isects, d_out_is_valid);
+	kernel_find_intersections_kd<<<grid_size, block_size>>>(ray_chunk, out_isects, d_out_is_valid);
 	CUDA_CHECKERROR;
 
 	out_isects.num_pts = ray_chunk.num_rays; 
@@ -537,7 +549,10 @@ void kernel_wrapper_solve_lte(const c_ray_chunk& ray_chunk,
 	}
 
 	// Add emitted and in indirect illumination from photon maps.
-	kernel_add_emitted_indirect<<<grid_size2, block_size2>>>(d_radiance_indirect, ray_chunk, shading_pts, d_io_radiance); 
+	kernel_add_emitted_indirect<<<grid_size2, block_size2>>>(d_radiance_indirect, 
+															ray_chunk, 
+															shading_pts, 
+															d_io_radiance); 
 }
 
 
@@ -598,7 +613,8 @@ void init_raytracing_kernels()
 	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance(); 
 	
 	// We need no shared memory for these kernels. So prefer L1 caching.
-	cuda_safe_call_no_sync(cudaFuncSetCacheConfig("kernel_find_intersections", cudaFuncCachePreferL1)); 
+	cuda_safe_call_no_sync(cudaFuncSetCacheConfig(kernel_find_intersections, cudaFuncCachePreferL1)); 
+	cuda_safe_call_no_sync(cudaFuncSetCacheConfig(kernel_find_intersections_kd, cudaFuncCachePreferL1)); 
 }
 
 extern "C"

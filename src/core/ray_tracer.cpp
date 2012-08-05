@@ -137,7 +137,7 @@ c_ray_chunk* c_ray_pool::get_next_chunk()
 
 void c_ray_pool::finalize_chunk(c_ray_chunk *chunk)
 {
-	assert(!is_chunk_active() && chunk != m_chunk_task);
+	assert(is_chunk_active() && chunk == m_chunk_task);
 
 	// Chunk done, reset indices
 	m_chunk_task->depth = 0; 
