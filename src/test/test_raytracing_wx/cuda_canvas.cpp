@@ -79,7 +79,7 @@ void c_cuda_canvas::init_gl_cuda()
 	int device_id = m_main_frame->get_cuda_device_id();
 	err = cudaGLSetGLDevice(device_id);
 	assert(err == cudaSuccess); 
-	
+
 	// Create video buffer object.
 	// NOTE: For CUDA toolkit 2.3 I used a pixel buffer object here. This is no more required for toolkit 3.0. 
 	glGenBuffers(1, &m_gl_vbo); 
@@ -126,6 +126,7 @@ void c_cuda_canvas::destroy_gl_cuda()
 void c_cuda_canvas::render()
 {
 	cudaError_t err = cudaSuccess; 
+	bool need_update = m_main_frame->need_update();
 
 	if (!GetContext()) 
 		yart_log_message("Failed to get OpenGL context!");
@@ -135,7 +136,7 @@ void c_cuda_canvas::render()
 
 	glClear(GL_COLOR_BUFFER_BIT); 
 
-	if (!m_main_frame->need_update())
+	if (!need_update)
 	{
 		glBindTexture(GL_TEXTURE_2D, m_gl_tex); 
 	}

@@ -4,11 +4,11 @@
 #include "cuda_mem_pool.h"
 
 texture<float4, 1, cudaReadModeElementType> tex_tri_v0, tex_tri_v1, tex_tri_v2; 
+texture<float4, 1, cudaReadModeElementType> tex_tri_n0, tex_tri_n1, tex_tri_n2; 
 
 __constant__ c_triangle_data const_tri_data; 
 
 /*
-texture<float4, 1, cudaReadModeElementType> tex_tri_n0;
 texture<float2, 1, cudaReadModeElementType> tex_tri_texcoord0; 
 texture<float2, 1, cudaReadModeElementType> tex_tri_texcoord1; 
 texture<float2, 1, cudaReadModeElementType> tex_tri_texcoord2; 
@@ -26,8 +26,14 @@ __global__ void kernel_test_triangle_data()
 		float3 v0 = make_float3(tex1Dfetch(tex_tri_v0, i)); 
 		float3 v1 = make_float3(tex1Dfetch(tex_tri_v1, i)); 
 		float3 v2 = make_float3(tex1Dfetch(tex_tri_v2, i));
+
+		float3 n0 = make_float3(tex1Dfetch(tex_tri_n0, i));
+		float3 n1 = make_float3(tex1Dfetch(tex_tri_n1, i));
+		float3 n2 = make_float3(tex1Dfetch(tex_tri_n2, i)); 
 		
-		printf("V0: %f, %f, %f | V1:  %f, %f, %f | V2: %f, %f, %f \r\n", v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z);
+		printf("V0: %f, %f, %f | V1:  %f, %f, %f | V2: %f, %f, %f | N0: %f, %f, %f | N1:  %f, %f, %f | N2: %f, %f, %f \r\n",
+			v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z,
+			n0.x, n0.y, n0.z, n1.x, n1.y, n1.z, n2.x, n2.y, n2.y);
 	}
 }
 
@@ -52,11 +58,15 @@ void kernel_wrapper_test_triangle_data(const c_triangle_data& tri_data)
 	tex_tri_v2.normalized = false;
 	cuda_safe_call_no_sync(cudaBindTexture(&offset, tex_tri_v2, tri_data.d_verts[2], cd_float4, tri_data.num_tris*sizeof(float4)));
 	
-	
-	/*
 	// Normals
-	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_n0, const_tri_data.d_normals[0], cd_float4, const_tri_data.num_tris*sizeof(float4)));
+	tex_tri_n0.normalized = false; 
+	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_n0, tri_data.d_normals[0], cd_float4, tri_data.num_tris*sizeof(float4)));
+	tex_tri_n1.normalized = false; 
+	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_n1, tri_data.d_normals[1], cd_float4, tri_data.num_tris*sizeof(float4)));
+	tex_tri_n2.normalized = false;
+	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_n2, tri_data.d_normals[2], cd_float4, tri_data.num_tris*sizeof(float4)));
 	
+	/* 
 	// Texture coordinates 
 	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_texcoord0, const_tri_data.d_texcoords[0], cd_float2, const_tri_data.num_tris*sizeof(float2))); 
 	cuda_safe_call_no_sync(cudaBindTexture(NULL, tex_tri_texcoord1, const_tri_data.d_texcoords[1], cd_float2, const_tri_data.num_tris*sizeof(float2))); 

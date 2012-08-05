@@ -19,7 +19,6 @@ void kernel_wrapper_test_triangle_data(const c_triangle_data& tri_data);
 const std::string file_name = "../data/models/MNSimple.obj";
 const aiScene *ai_scene = NULL;
 scene_ptr scene;
-c_triangle_data tri_data; 
 
 void initialise()
 {
@@ -52,6 +51,8 @@ void initialise()
 	scene.reset(new c_scene(meshes, bounds,cam, lights, materials));
 
 	// Copy data back from device to host
+	
+	c_triangle_data& tri_data = scene->get_triangle_data();
 	
 	float4 *h_verts[3];
 	for (int i = 0; i < 3; ++i)
@@ -86,6 +87,7 @@ int main(int argc, char **argv)
 { 
 	initialise(); 
 
+	c_triangle_data& tri_data = scene->get_triangle_data();
 	kernel_wrapper_test_triangle_data(tri_data);
 
 	cleanup();

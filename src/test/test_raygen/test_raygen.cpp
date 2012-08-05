@@ -7,8 +7,8 @@
 #include "utils.h"
 #include "cuda_rng.h"
 
-uint32 g_screen_width = 16; 
-uint32 g_screen_height = 16; 
+uint32 g_screen_width = 64; 
+uint32 g_screen_height = 64; 
 perspective_cam_ptr g_cam; 
 ray_pool_ptr g_ray_pool;
 
@@ -29,14 +29,14 @@ void initialise()
 	c_point3f eye_pos(0.0f, 0.0f, -0.5f);
 	c_point3f look_at(0.f, 0.0f, 0.0f);
 	c_vector3f up(0.0f, 1.0f, 0.0f); 
-	float wnd[4] = {-1.333f, 1.333f, -1.0f, 1.0f}; 
+	float wnd[4] = {-1.0f, 1.0f, -1.0f, 1.0f}; 
 	c_transform world_to_cam = make_look_at_lh(eye_pos, look_at, up);
 	c_transform cam_to_world = inverse_transform(world_to_cam);
 	c_transform proj = make_perspective_proj(60, 1e-2f, 1000.0f); 
 	g_cam = make_perspective_cam(cam_to_world, wnd, 0, 0, 60, g_screen_width, g_screen_height);
 
 	// Create ray pool
-	g_ray_pool = make_ray_pool(256*256, 1, 1); 
+	g_ray_pool = make_ray_pool(256*1024, 1, 1); 
 
 	// Init CUDA MT
 	srand(1337); 
@@ -77,7 +77,6 @@ void print_ray_pool(ray_pool_ptr ray_pool)
 
 int main(int argc, char **argv)
 {
-
 	initialise();
 	
 	// Generate rays 

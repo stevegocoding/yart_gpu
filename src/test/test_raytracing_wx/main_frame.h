@@ -58,7 +58,9 @@ private:
 	/* Stats
 	*/ 
 	// ---------------------------------------------------------------------
-	bool m_single_frame; 
+	bool m_is_ready;
+	bool m_single_frame;
+	bool m_is_single_done;
 
 	// ---------------------------------------------------------------------
 	/* wxWidgets Objects

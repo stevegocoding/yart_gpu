@@ -100,20 +100,21 @@ bool c_renderer::render_scene(uchar4 *d_screen_buf)
 
 bool c_renderer::render_to_buf(PARAM_OUT float4 *d_radiance)
 {
-	cudaError_t err = cudaSuccess; 
+	assert(d_radiance);
+	
+	cudaError_t err = cudaSuccess;
 	
 	perspective_cam_ptr cam = m_scene->get_cam(); 
-
 	uint32 res_x = cam->res_x();
 	uint32 res_y = cam->res_y();
 
-	uint2 area_light_samples = make_uint2(m_area_light_samples_x, m_area_light_samples_y); 
-
-	// Reset target buffer to black.
-	err = cudaMemset(d_radiance, 0, res_x*res_y*sizeof(float4));
-	assert(err == cudaSuccess); 
-
+	// Set target buffer to black 
+	cuda_safe_call_no_sync(cudaMemset(d_radiance, 0, res_x*res_y*sizeof(float4))); 
+	
+	// Generate primary rays for current camera position 
 	m_ray_pool->gen_primary_rays(cam.get()); 
+
+	uint2 area_light_samples = make_uint2(m_area_light_samples_x, m_area_light_samples_y);
 	
 	while(m_ray_pool->has_more_rays())
 	{
@@ -155,6 +156,10 @@ bool c_renderer::render_to_buf(PARAM_OUT float4 *d_radiance)
 
 void c_renderer::initialise(uint32 screen_size)
 {
+	// Initialize the memory pool 
+	c_cuda_mem_pool& mem_pool = c_cuda_mem_pool::get_instance();
+	mem_pool.initialise(256*1024*1024, 256*1024); 
+	
 	// Initialise the MT
 	srand(1337); 
 	c_cuda_rng& rng = c_cuda_rng::get_instance();

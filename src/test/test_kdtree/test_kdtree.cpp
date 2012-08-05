@@ -16,10 +16,9 @@
 #include "assimp_loader.h"
 
 static const std::string mt_dat_file = "../data/mt/MersenneTwister.dat"; 
-const std::string file_name = "../data/models/cube.ply";
+const std::string file_name = "../data/models/MNSimple.obj";
 const aiScene *ai_scene = NULL;
 scene_ptr scene;
-c_triangle_data tri_data;  
 
 c_kdtree_triangle *kdtree_tri = NULL;
 
@@ -56,6 +55,7 @@ void cleanup()
 
 void build_kdtree()
 {
+	c_triangle_data& tri_data = scene->get_triangle_data();
 	kdtree_tri = new c_kdtree_triangle(tri_data); 
 	kdtree_tri->build_tree(); 
 }

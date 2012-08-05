@@ -14,7 +14,7 @@ extern std::ofstream others_ofs;
 
 /// \brief	kd-tree traverse cost. Used to stop the splitting at some point where traversal would
 ///			lead to a higher cost than splitting a given node.
-#define KD_COST_TRAVERSE	3.0f
+#define KD_COST_TRAVERSE	8.0f
 
 cudaDeviceProp device_props;
 

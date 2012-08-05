@@ -76,9 +76,7 @@ private:
 
 	bool m_has_normal;
 	bool m_has_tangent; 
-	bool m_has_uv;
-
-	
+	bool m_has_uv; 
 };
 
 //////////////////////////////////////////////////////////////////////////

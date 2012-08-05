@@ -245,6 +245,8 @@ void c_kdtree_gpu::large_node_stage()
 	// no more large nodes to work on.
 	while (!m_active_node_list->is_empty())
 	{
+		std::cout << "Large Node Stage! " << std::endl;
+
 		active_ofs << "Large Node Stage Loop Started! " << std::endl; 
 		
 		active_ofs << "Active List: " << std::endl; 
@@ -292,6 +294,8 @@ void c_kdtree_gpu::small_node_stage()
 	
 	while (!m_active_node_list->is_empty())
 	{
+		std::cout << "Small Node Stage! " << std::endl;
+		
 		// NOTE: The paper tells to append the active list to the final node list here.
 		//		 I do not follow since this way the changes (children, ...) won't
 		//		 get into the final node list. Instead I moved this to the end of the
@@ -431,7 +435,7 @@ void c_kdtree_gpu::process_small_nodes()
 										d_best_splits.buf_ptr(), 
 										d_min_sahs.buf_ptr()); 
 	else 
-		kernel_wrapper_find_best_split<1>(*m_active_node_list, 
+		kernel_wrapper_find_best_split<2>(*m_active_node_list, 
 										*m_split_list, 
 										m_max_query_radius, 
 										d_best_splits.buf_ptr(), 
@@ -549,7 +553,6 @@ void c_kdtree_gpu::process_small_nodes()
 								d_src_addr.buf_ptr(), 
 								m_next_node_list->d_aabb_tight_max+offset, 
 								num_splits); 
-
 			cuda_set_from_address(m_active_node_list->d_small_root_idx+m_active_node_list->num_nodes, 
 								d_src_addr.buf_ptr(), 
 								m_next_node_list->d_small_root_idx+offset,

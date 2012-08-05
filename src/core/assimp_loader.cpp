@@ -93,18 +93,28 @@ void print_mesh(std::ostream& os, triangle_mesh2_ptr mesh)
 	{
 		os << "index: " << i << std::endl;
 		point3f *verts = mesh->get_verts(i); 
+		normal3f *normals = mesh->get_normals(i); 
 		
 		for (size_t f = 0; f < mesh->get_num_faces(); ++f)
 		{
 			std::ios::fmtflags old_flags = os.flags(); 
 			os.setf(std::ios::left, std::ios::adjustfield); 
 
+			// Vertices 
 			os  << std::setprecision(prec) << std::setw(width) << std::setfill(' ') 
 				<< verts[f].x << ' ' 
 				<< std::setprecision(prec) << std::setw(width) << std::setfill(' ')
 				<< verts[f].y << ' ' 
 				<< std::setprecision(prec) << std::setw(width) << std::setfill(' ')
-				<< verts[f].z << ' ' << std::endl; 
+				<< verts[f].z << ' ' << " | ";
+
+			// Normals 
+			os  << std::setprecision(prec) << std::setw(width) << std::setfill(' ') 
+				<< normals[f].x << ' ' 
+				<< std::setprecision(prec) << std::setw(width) << std::setfill(' ')
+				<< normals[f].y << ' ' 
+				<< std::setprecision(prec) << std::setw(width) << std::setfill(' ')
+				<< normals[f].z << ' ' << std::endl;
 
 			os.setf(old_flags); 
 
@@ -114,7 +124,7 @@ void print_mesh(std::ostream& os, triangle_mesh2_ptr mesh)
 
 size_t assimp_load_meshes2(const aiScene *scene, triangle_meshes2_array& meshes, c_aabb& out_bounds)
 {
-	std::ofstream ofs("mesh_debug.txt");
+	std::ofstream ofs("mesh_debug.txt");	
 	
 	unsigned int tri_idx = 0; 
 	for (size_t i = 0; i < scene->mNumMeshes; ++i)

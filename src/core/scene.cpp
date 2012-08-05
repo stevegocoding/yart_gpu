@@ -145,7 +145,7 @@ void c_scene::init_triangle_data(triangle_meshes2_array& meshes, const c_aabb& s
 	cuda_safe_call_no_sync(cudaMemcpy(m_tri_data.d_material_idx, 
 									(void*)&temp_mat_idx_buf[0], 
 									m_tri_data.num_tris*sizeof(unsigned int), 
-									cudaMemcpyDeviceToHost));
+									cudaMemcpyHostToDevice));
 	
 	/*
 	SAFE_DELETE_ARRAY(temp_buf);

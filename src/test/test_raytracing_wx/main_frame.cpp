@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "wx_utils.h"
 #include "assimp_loader.h" 
+#include "scene.h"
 
 enum
 {
@@ -28,6 +29,8 @@ END_EVENT_TABLE()
 
 c_main_frame::c_main_frame(const wxString& title, const wxSize& size)
 	: wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, size)
+	, m_single_frame(true)
+	, m_is_single_done(false)
 {
 	// Create log window
 	m_log_wnd = new wxLogWindow(this, L"Log", false, true); 
@@ -51,6 +54,8 @@ c_main_frame::c_main_frame(const wxString& title, const wxSize& size)
 	}
 
 	m_cuda_canvas = new c_cuda_canvas(this, wxID_ANY, wxDefaultPosition, size);  
+
+	m_is_ready = true; 
 }
 
 c_main_frame::~c_main_frame()
@@ -65,20 +70,39 @@ bool c_main_frame::reinit_renderer(bool update)
 	
 	m_renderer.reset(new c_renderer(m_scene));
 	
-	m_cuda_canvas->Refresh();
-	
+	if (m_is_ready) 
+	{
+		m_is_single_done = false; 
+		m_cuda_canvas->Refresh();
+	}
+
 	return true; 
 }
 
 void c_main_frame::render(uchar4 *d_buf)
 {
 	wxSize screen_size = m_cuda_canvas->get_screen_size();
-	// bool err = m_renderer->render_scene(d_buf); 
+	bool err = m_renderer->render_scene(d_buf);
+	if (!err)
+	{
+		wx_log_error(L"Rendering Failed!"); 
+		unload_scene();
+	}
+
+	m_is_single_done = true; 
 }
 
 bool c_main_frame::need_update() const 
 {
-	return true;
+	if (!m_is_ready)
+		return false; 
+
+	if (m_single_frame && !m_is_single_done)
+		return m_renderer != NULL; 
+	else if (!m_single_frame)
+		return m_renderer != NULL; 
+	
+	return false;
 }
 
 bool c_main_frame::check_for_cuda()
@@ -148,18 +172,40 @@ bool c_main_frame::load_scene_from_file(const wxString& file_name)
 {
 	unload_scene();
 
-	triangle_meshes2_array tri_mesh;
 	c_aabb bounds; 
+	triangle_meshes2_array meshes;
+	scene_material_array materials; 
+	scene_light_array lights; 
+
+	// Import the assimp scene 
 	assimp_import_scene(std::string(file_name.mb_str()), &ai_scene);
 
-	// Load mesh 
-	assimp_load_meshes2(ai_scene, tri_mesh, bounds);
+	// Load the meshes
+	assimp_load_meshes2(ai_scene, meshes, bounds);
 
 	// Load material 
+	assimp_load_materials(ai_scene, materials);
 	
+	// Release the assimp scene
+	assimp_release_scene(ai_scene);
 	
+	// Create the lights 
+	lights.push_back(make_point_light(c_vector3f(0.0f, 0.0f, 0.0f), c_vector3f(1.0f, 1.0f, 1.0f)));
 	
-	
+	// Create camera 
+	c_point3f eye_pos(0.0f, 0.0f, -0.5f);
+	c_point3f look_at(0.f, 0.0f, 0.0f);
+	c_vector3f up(0.0f, 1.0f, 0.0f); 
+	float wnd[4] = {-1.333f, 1.333f, -1.0f, 1.0f}; 
+	uint32 screen_w = m_cuda_canvas->get_screen_size().GetWidth(); 
+	uint32 screen_h = m_cuda_canvas->get_screen_size().GetHeight(); 
+	c_transform world_to_cam = make_look_at_lh(eye_pos, look_at, up);
+	c_transform cam_to_world = inverse_transform(world_to_cam);
+	c_transform proj = make_perspective_proj(60, 1e-2f, 1000.0f); 
+	perspective_cam_ptr cam = make_perspective_cam(cam_to_world, wnd, 0, 0, 60, screen_w, screen_h);
+
+	// Create the scene 
+	m_scene.reset(new c_scene(meshes, bounds,cam, lights, materials));
 	
 	if (file_name.IsEmpty())
 		m_file_history->AddFileToHistory(file_name); 
